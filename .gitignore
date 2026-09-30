@@ -1,0 +1,19 @@
+# ---- Ảnh gốc nặng, không đẩy lên GitHub ----
+# Chuỗi 250 frame PNG gốc (khoảng 700 MB). Website dùng bản WebP trong /frames/.
+/Sequence1/
+/2d/
+
+# Ảnh thiết kế tham chiếu ở thư mục gốc
+/*.png
+/*.jpg
+
+# ---- Hệ thống ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Editor / tool ----
+.vscode/
+.idea/
+node_modules/
+*.log
