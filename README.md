@@ -99,23 +99,44 @@ Muốn đổi số frame, sửa `count` và `pad` trong `js/scenes.js` cho khớ
 
 ---
 
-## 6. Đẩy lên GitHub Pages
+## 6. Triển khai (deploy)
+
+### 6.1. GitHub
+
+Repo: <https://github.com/coordinator1-afk/3d-tour-showroom>
 
 `Sequence1/` (700 MB ảnh PNG gốc) và thư mục `2d/` đã được `.gitignore` bỏ qua — chỉ bản WebP trong `frames/` (≈46 MB) được đẩy lên.
 
 ```bash
-git init
 git add .
-git commit -m "Website tham quan 3D: xoay 360 bang chuoi frame + mat bang 2D"
-git branch -M main
-git remote add origin https://github.com/<tài-khoản>/<tên-repo>.git
-git push -u origin main
+git commit -m "cap nhat noi dung"
+git push
 ```
 
-Bật Pages: **Settings → Pages → Source: Deploy from a branch → Branch: main / (root)**.
-Trang sẽ chạy tại `https://<tài-khoản>.github.io/<tên-repo>/`.
+### 6.2. Cloudflare Pages
 
-> File `.nojekyll` đã có sẵn để GitHub Pages không xử lý sai thư mục `assets/`.
+Site đang chạy tại: **<https://3d-tour-showroom.pages.dev>**
+
+Vì thư mục gốc còn chứa 700 MB ảnh nguồn, ta deploy từ gói rút gọn `dist/`:
+
+```powershell
+# 1. Tạo lại gói deploy (chỉ gồm file website cần thiết)
+Remove-Item dist -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path dist | Out-Null
+Copy-Item index.html,.nojekyll -Destination dist -Force
+Copy-Item css,js,assets,frames -Destination dist -Recurse -Force
+
+# 2. Đăng nhập Cloudflare (chỉ cần làm 1 lần)
+npx wrangler login
+
+# 3. Deploy
+npx wrangler pages deploy dist --project-name=3d-tour-showroom --branch=main --commit-dirty=true
+```
+
+Muốn **tự động deploy mỗi lần push**: vào Cloudflare Dashboard → **Workers & Pages → Create → Pages → Connect to Git**, chọn repo `3d-tour-showroom`. Khi đó Cloudflare tự build từ nhánh `main` (không cần cấu hình build, để trống lệnh build và đặt *Build output directory* là `/`).
+
+> File `.nojekyll` có sẵn để GitHub Pages không xử lý sai thư mục `assets/` (Cloudflare không cần file này nhưng vô hại).
+
 
 ---
 

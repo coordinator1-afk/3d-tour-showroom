@@ -12,6 +12,10 @@
 Thumbs.db
 desktop.ini
 
+# ---- Gói deploy (tạo lại bằng lệnh trong README) ----
+/dist/
+.wrangler/
+
 # ---- Editor / tool ----
 .vscode/
 .idea/
