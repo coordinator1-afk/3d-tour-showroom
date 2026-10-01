@@ -127,8 +127,149 @@
     ctx.clearRect(0, 0, T.w, T.h);
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, T.w, T.h);
 
+    T.map = { sx: sx, sy: sy, sw: sw, sh: sh, iw: iw, ih: ih };
+    drawHotspots(use);
+
     T.lastDrawn = use;
     T.dirty = false;
+  }
+
+  /* ==============================================================
+     HOTSPOT — khối line box phát sáng bám theo căn hộ
+     Toạ độ từng frame nằm trong js/hotspots.json (tạo bằng tools/track-hotspot.py),
+     chuẩn hoá 0..1 theo khung ảnh nên đúng với mọi bộ kích thước frame.
+     ============================================================== */
+  var H = { items: [], hover: null, open: null, any: false, card: null, down: null, tip: null };
+
+  function loadHotspots() {
+    if (!window.fetch) return;
+    fetch(CFG.hotspotsData || 'js/hotspots.json').then(function (r) { return r.json(); }).then(function (all) {
+      Object.keys(all).forEach(function (id) {
+        var d = all[id];
+        if (!d || !d.frames) return;
+        H.items.push({
+          cfg: { id: id, name: d.name || id, link: d.link || '' },
+          frames: d.frames, screen: null
+        });
+      });
+      T.dirty = true;
+    }).catch(function () {});
+  }
+
+  function hotspotPoly(it, idx) {
+    var d = it.frames[pad(idx, FRAMES.pad || 3)];
+    if (!d || !d.v) return null;
+    var m = T.map, p = d.p, k = T.w / m.sw, out = [];
+    for (var i = 0; i < p.length; i += 2) {
+      out.push([(p[i] * m.iw - m.sx) * k, (p[i + 1] * m.ih - m.sy) * (T.h / m.sh)]);
+    }
+    return out;
+  }
+
+  function pointInPoly(x, y, poly) {
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  function drawHotspots(frameIdx) {
+    H.any = false;
+    if (!H.items.length) return;
+    var t = performance.now() / 1000;
+    var pulse = 0.5 + 0.5 * Math.sin(t * 2.6);
+    H.items.forEach(function (it) {
+      var poly = hotspotPoly(it, frameIdx);
+      it.screen = poly;
+      if (!poly) return;
+      H.any = true;
+      var hot = H.hover === it || H.open === it;
+
+      ctx.save();
+      ctx.beginPath();
+      poly.forEach(function (q, i) { i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+      ctx.closePath();
+      ctx.lineJoin = 'round';
+      ctx.fillStyle = 'rgba(80, 200, 255, ' + (hot ? 0.34 : 0.10 + 0.12 * pulse) + ')';
+      ctx.fill();
+      ctx.shadowColor = 'rgba(90, 210, 255, 0.95)';
+      ctx.shadowBlur = hot ? 26 : 10 + 14 * pulse;
+      ctx.strokeStyle = hot ? '#ffffff' : 'rgba(190, 240, 255, ' + (0.75 + 0.25 * pulse) + ')';
+      ctx.lineWidth = hot ? 2.6 : 2;
+      ctx.stroke();
+      ctx.stroke();                         // vẽ 2 lần để viền phát sáng đậm hơn
+      ctx.restore();
+    });
+    if (H.any) T.dirty = true;              // giữ hiệu ứng nhịp sáng
+    placeCard();
+  }
+
+  function hotspotAt(x, y) {
+    for (var i = 0; i < H.items.length; i++) {
+      var s = H.items[i].screen;
+      if (s && pointInPoly(x, y, s)) return H.items[i];
+    }
+    return null;
+  }
+
+  function showTip(it, x, y) {
+    if (!H.tip) {
+      H.tip = document.createElement('div');
+      H.tip.className = 'hotspot-tip';
+      H.tip.hidden = true;
+      el.canvas.parentNode.appendChild(H.tip);
+    }
+    if (!it || H.open) { H.tip.hidden = true; return; }
+    H.tip.textContent = it.cfg.name;
+    H.tip.style.left = x + 'px';
+    H.tip.style.top = (y - 16) + 'px';
+    H.tip.hidden = false;
+  }
+
+  function buildCard() {
+    var c = document.createElement('div');
+    c.className = 'hotspot-card';
+    c.hidden = true;
+    c.innerHTML =
+      '<span class="hotspot-card__name"></span>' +
+      '<button class="hotspot-card__go" type="button">VÀO XEM NỘI THẤT <i>→</i></button>';
+    el.canvas.parentNode.appendChild(c);
+    c.querySelector('.hotspot-card__go').addEventListener('click', function () {
+      var it = H.open;
+      closeCard();
+      if (it && it.cfg.link) setScene(it.cfg.link);
+    });
+    c.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    H.card = c;
+  }
+
+  function openCard(it) {
+    if (!H.card) buildCard();
+    H.open = it;
+    if (H.tip) H.tip.hidden = true;
+    H.card.querySelector('.hotspot-card__name').textContent = it.cfg.name || '';
+    H.card.hidden = false;
+    setSpin(false);
+    T.dirty = true;
+  }
+
+  function closeCard() {
+    H.open = null;
+    if (H.card) H.card.hidden = true;
+    T.dirty = true;
+  }
+
+  function placeCard() {
+    if (!H.open) return;
+    var s = H.open.screen;
+    if (!s) { closeCard(); return; }       // căn đã xoay khuất → đóng thẻ
+    var cx = 0, top = Infinity;
+    s.forEach(function (q) { cx += q[0]; top = Math.min(top, q[1]); });
+    cx /= s.length;
+    H.card.style.left = clamp(cx, 90, T.w - 90) + 'px';
+    H.card.style.top  = Math.max(top - 14, 70) + 'px';
   }
 
   function tick() {
@@ -228,13 +369,24 @@
     T.dragging = true;
     T.lastX = e.clientX;
     T.vel = 0;
+    H.down = { x: e.clientX, y: e.clientY };
     el.canvas.classList.add('is-dragging');
     try { el.canvas.setPointerCapture(e.pointerId); } catch (_) {}
     hideHint();
   });
 
   on(el.canvas, 'pointermove', function (e) {
-    if (!T.dragging) return;
+    if (!T.dragging) {
+      var hv = hotspotAt(e.clientX, e.clientY);
+      if (hv !== H.hover) {
+        H.hover = hv;
+        el.canvas.style.cursor = hv ? 'pointer' : '';
+        T.dirty = true;
+      }
+      showTip(hv, e.clientX, e.clientY);
+      return;
+    }
+    if (e.buttons === 0 && e.pointerType === 'mouse') { endDrag(e); return; }   // mất pointerup → thôi kéo
     var d = -(e.clientX - T.lastX) * 0.35;
     T.lastX = e.clientX;
     T.pos += d;
@@ -244,6 +396,15 @@
   function endDrag(e) {
     if (!T.dragging) return;
     T.dragging = false;
+    /* nhấp (không kéo) vào hotspot → mở thẻ; nhấp ra ngoài → đóng thẻ */
+    if (e.type === 'pointerup' && H.down &&
+        Math.abs(e.clientX - H.down.x) < 5 && Math.abs(e.clientY - H.down.y) < 5) {
+      var hit = hotspotAt(e.clientX, e.clientY);
+      if (hit) openCard(hit); else if (H.open) closeCard();
+    } else if (H.open) {
+      closeCard();
+    }
+    H.down = null;
     el.canvas.classList.remove('is-dragging');
     try { el.canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   }
@@ -392,6 +553,7 @@
     if (!sc) return;
     state.id = sc.id;
     state.lastByMode[sc.mode] = sc.id;
+    closeCard();
 
     var isFrames = sc.mode === '360';
     var isPlan   = sc.mode === '2d';
@@ -581,6 +743,7 @@
 
     buildDrawer();
     resizeCanvas();
+    loadHotspots();
 
     on(el.menuBtn, 'click', function () {
       el.drawer.classList.contains('is-open') ? closeDrawer() : openDrawer();
@@ -621,7 +784,7 @@
     });
 
     on(window, 'keydown', function (e) {
-      if (e.key === 'Escape') { closeDrawer(); return; }
+      if (e.key === 'Escape') { closeDrawer(); closeCard(); return; }
       var sc = state.id ? sceneById(state.id) : null;
       if (!sc) return;
       if (sc.mode === '360' && !T.failed) {

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Chỉnh hotspot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#12150d; --ink:#efe9ef; --dim:rgba(239,233,239,.6); --acc:#5ad2ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px system-ui, sans-serif; display:flex; flex-direction:column; min-height:100vh; }
+  header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.12); }
+  header b { margin-right:6px; }
+  button { background:#f4f2ee; color:#14170f; border:0; border-radius:8px; padding:7px 12px; cursor:pointer; font:inherit; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid rgba(255,255,255,.3); }
+  button:disabled { opacity:.4; cursor:default; }
+  select { background:#1a1e11; color:var(--ink); border:1px solid rgba(255,255,255,.25); border-radius:6px; padding:6px 8px; max-width:230px; }
+  input[type=text] { background:#1a1e11; color:var(--ink); border:1px solid rgba(255,255,255,.25); border-radius:6px; padding:6px 8px; width:90px; }
+  #stage { flex:1; min-height:min(62vh,560px); display:flex; align-items:center; justify-content:center; padding:8px; }
+  canvas { height:100%; width:auto; aspect-ratio:16/9; max-width:100%; background:#000; cursor:crosshair; touch-action:none; }
+  #timeline { height:46px; margin:0 14px 8px; position:relative; background:#1a1e11; border-radius:8px; cursor:pointer; }
+  #timeline i { position:absolute; top:0; bottom:0; width:2px; background:rgba(255,255,255,.18); }
+  #timeline .vis { position:absolute; top:30px; height:8px; background:rgba(90,210,255,.55); }
+  #timeline .key { position:absolute; top:6px; width:10px; height:18px; margin-left:-5px; border-radius:3px; background:#ffd24a; }
+  #timeline .key.hid { background:#ff6a6a; }
+  #timeline .cur { position:absolute; top:0; bottom:0; width:2px; background:#fff; }
+  #status { color:var(--dim); margin-left:auto; }
+  .tip { padding:0 14px 10px; color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <b>Chỉnh hotspot</b>
+  <label>Hotspot <select id="hsel"></select></label>
+  <button class="ghost" id="addHs">＋ Thêm hotspot</button>
+  <button class="ghost" id="delHs">🗑 Xoá hotspot</button>
+  <label>Tên <input type="text" id="hname" placeholder="CĂN 01" style="width:130px"></label>
+  <label>Đi tới <select id="hlink"></select></label>
+  <span style="flex-basis:100%;height:0"></span>
+  <button class="ghost" id="prev">◀ −1</button>
+  <button class="ghost" id="next">+1 ▶</button>
+  <button class="ghost" id="prev12">◀◀ −12</button>
+  <button class="ghost" id="next12">+12 ▶▶</button>
+  <span>Frame <b id="fno">0</b> / 249 · <span id="kind"></span></span>
+  <button class="ghost" id="zin">🔍＋</button>
+  <button class="ghost" id="zout">🔍−</button>
+  <button class="ghost" id="zfit">Vừa khung</button>
+  <span id="zlbl" style="color:var(--dim)">100%</span>
+  <button class="ghost" id="toggleVis">Đặt "ẩn/hiện" ở keyframe này</button>
+  <button class="ghost" id="delKey">Xoá keyframe</button>
+  <button id="save">💾 Lưu vào js/hotspots.json</button>
+  <span id="status"></span>
+</header>
+<div id="stage"><canvas id="cv" width="1920" height="1080"></canvas></div>
+<div id="timeline"></div>
+<div class="tip">
+  Lăn chuột = zoom · kéo vào chỗ trống = di chuyển ảnh · double-click = zoom nhanh · Kéo một đỉnh để tạo keyframe tại frame hiện tại · ←/→ chuyển frame (Shift = 12 frame) · Vàng = keyframe hiện, đỏ = keyframe ẩn ·
+  Thanh xanh = đoạn hotspot sẽ hiện · Frame ở giữa 2 keyframe được nội suy mượt và tự khép vòng 249→0.
+</div>
+
+<script src="../js/scenes.js"></script>
+<script>
+var N = 250, W = 1920, H = 1080;
+var Z = 1, OX = 0, OY = 0, pan = null;   // zoom + dịch chuyển (toạ độ pixel ảnh)
+var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+var imgs = {};              // cache ảnh
+var cur = 0;
+var all = {};               // {id: {name, link, keys:{frame:{v,p}}}}
+var curId = null;
+var keys = {};              // keyframe của hotspot đang chọn: {frame: {v:1|0, p:[x,y,...] (chuẩn hoá 0..1)}}
+var drag = -1;
+
+function pad(n){ n = String(n); while(n.length < 3) n = '0'+n; return n; }
+function frameImg(i, cb){
+  if (imgs[i]) return cb(imgs[i]);
+  var im = new Image(); im.onload = function(){ imgs[i] = im; cb(im); };
+  im.src = '../frames/1920/frame_' + pad(i) + '.webp';
+}
+function sortedKeysOf(K){ return Object.keys(K).map(Number).sort(function(a,b){return a-b;}); }
+function sortedKeys(){ return sortedKeysOf(keys); }
+
+/* ---- nội suy Catmull-Rom vòng tròn theo frame ---- */
+function cr(p0,p1,p2,p3,t){
+  var t2=t*t,t3=t2*t;
+  return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);
+}
+function polyAt(i){ return polyAtKeys(keys, i); }
+function polyAtKeys(keys, i){
+  var ks = sortedKeysOf(keys);
+  if (!ks.length) return null;
+  if (keys[i]) return {v: keys[i].v, p: keys[i].p.slice(), key: true};
+  if (ks.length === 1) return {v: keys[ks[0]].v, p: keys[ks[0]].p.slice()};
+  var a = null, b = null, k, idx;
+  for (idx = 0; idx < ks.length; idx++) if (ks[idx] < i) a = idx;
+  if (a === null) a = ks.length - 1;                       // vòng: key cuối là trước frame 0
+  b = (a + 1) % ks.length;
+  var fa = ks[a], fb = ks[b];
+  var span = ((fb - fa) + N) % N || N, t = (((i - fa) + N) % N) / span;
+  var A = keys[fa], B = keys[fb];
+  var vis = (A.v && B.v) ? 1 : 0;
+  var pA = keys[ks[(a - 1 + ks.length) % ks.length]], pB = keys[ks[(b + 1) % ks.length]];
+  var out = [];
+  for (k = 0; k < A.p.length; k++) {
+    var p0 = (ks.length > 2 ? pA.p[k] : A.p[k]), p3 = (ks.length > 2 ? pB.p[k] : B.p[k]);
+    out.push(cr(p0, A.p[k], B.p[k], p3, t));
+  }
+  return {v: vis, p: out};
+}
+
+/* ---- vẽ ---- */
+function draw(){
+  frameImg(cur, function(im){
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H);
+    ctx.setTransform(Z,0,0,Z,OX,OY); ctx.drawImage(im,0,0,W,H);
+    var px = 1 / Z;
+    Object.keys(all).forEach(function(id){
+      if (id === curId) return;
+      var o = polyAtKeys(all[id].keys, cur);
+      if (!o || !o.v) return;
+      ctx.beginPath();
+      for (var q = 0; q < o.p.length; q += 2) { q ? ctx.lineTo(o.p[q]*W, o.p[q+1]*H) : ctx.moveTo(o.p[q]*W, o.p[q+1]*H); }
+      ctx.closePath(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.setLineDash([6*px,4*px]); ctx.lineWidth = 1.5*px; ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#fff'; ctx.font = (16*px) + 'px system-ui'; ctx.fillText(all[id].name || id, o.p[0]*W, o.p[1]*H - 6);
+    });
+    var d = polyAt(cur);
+    if (d) {
+      var p = d.p, i;
+      ctx.beginPath();
+      for (i = 0; i < p.length; i += 2) { var x=p[i]*W, y=p[i+1]*H; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }
+      ctx.closePath();
+      ctx.globalAlpha = d.v ? 1 : .35;
+      ctx.fillStyle = 'rgba(90,210,255,.25)'; ctx.fill();
+      ctx.strokeStyle = d.v ? '#5ad2ff' : '#ff6a6a'; ctx.lineWidth = 2*px; ctx.stroke();
+      ctx.globalAlpha = 1;
+      for (i = 0; i < p.length; i += 2) {
+        ctx.beginPath(); ctx.arc(p[i]*W, p[i+1]*H, 7*px, 0, 7);
+        ctx.fillStyle = d.key ? '#ffd24a' : '#fff'; ctx.fill(); ctx.strokeStyle='#000'; ctx.lineWidth=1.5*px; ctx.stroke();
+      }
+    }
+    document.getElementById('zlbl').textContent = Math.round(Z*100) + '%';
+    document.getElementById('fno').textContent = cur;
+    document.getElementById('kind').textContent = !d ? 'chưa có' : (keys[cur] ? (keys[cur].v ? 'KEYFRAME (hiện)' : 'KEYFRAME (ẩn)') : (d.v ? 'nội suy' : 'ẩn'));
+    drawTimeline();
+  });
+}
+
+function drawTimeline(){
+  var tl = document.getElementById('timeline'); tl.innerHTML = '';
+  var w = tl.clientWidth, i;
+  var start = -1;
+  for (i = 0; i <= N; i++) {
+    var d = i < N ? polyAt(i) : null, on = d && d.v;
+    if (on && start < 0) start = i;
+    if (!on && start >= 0) {
+      var s = document.createElement('div'); s.className='vis';
+      s.style.left = (start/N*w)+'px'; s.style.width = Math.max(2,(i-start)/N*w)+'px'; tl.appendChild(s); start = -1;
+    }
+  }
+  sortedKeys().forEach(function(k){
+    var e = document.createElement('div'); e.className = 'key' + (keys[k].v ? '' : ' hid');
+    e.style.left = ((k+.5)/N*w)+'px'; tl.appendChild(e);
+  });
+  var c = document.createElement('div'); c.className='cur'; c.style.left = ((cur+.5)/N*w)+'px'; tl.appendChild(c);
+}
+
+function setFrame(i){ cur = ((i % N) + N) % N; draw(); }
+
+/* ---- thao tác chuột ---- */
+function mouse(e){
+  var r = cv.getBoundingClientRect();
+  return [((e.clientX - r.left) / r.width * W - OX) / Z, ((e.clientY - r.top) / r.height * H - OY) / Z];
+}
+cv.addEventListener('pointerdown', function(e){
+  var d = polyAt(cur); var m = mouse(e);
+  if (!d) {                                              // chưa có gì: đặt 4 đỉnh nhanh quanh điểm bấm
+    keys[cur] = {v:1, p:[ (m[0]-40)/W,(m[1]-40)/H, (m[0]+40)/W,(m[1]-40)/H, (m[0]+40)/W,(m[1]+40)/H, (m[0]-40)/W,(m[1]+40)/H ]};
+    draw(); return;
+  }
+  var best = -1, bd = Math.pow(16 / Z, 2), i;
+  for (i = 0; i < d.p.length; i += 2) {
+    var dx = d.p[i]*W - m[0], dy = d.p[i+1]*H - m[1], dd = dx*dx+dy*dy;
+    if (dd < bd) { bd = dd; best = i; }
+  }
+  if (best < 0 || e.button === 1 || e.button === 2) {                    // không trúng đỉnh → kéo để di chuyển ảnh
+    pan = {x: e.clientX, y: e.clientY, ox: OX, oy: OY}; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; return;
+  }
+  if (best >= 0) {
+    if (!keys[cur]) keys[cur] = {v: d.v ? 1 : 1, p: d.p.slice()};   // kéo ở frame nội suy → tạo keyframe
+    drag = best; cv.setPointerCapture(e.pointerId);
+  }
+});
+cv.addEventListener('pointermove', function(e){
+  if (pan) {
+    var r = cv.getBoundingClientRect();
+    OX = pan.ox + (e.clientX - pan.x) / r.width * W; OY = pan.oy + (e.clientY - pan.y) / r.height * H;
+    clampView(); draw(); return;
+  }
+  if (drag < 0) return;
+  var m = mouse(e);
+  keys[cur].p[drag] = m[0]/W; keys[cur].p[drag+1] = m[1]/H;
+  draw();
+});
+cv.addEventListener('pointerup', function(){ drag = -1; if (pan) { pan = null; cv.style.cursor = ''; } });
+cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+function clampView(){
+  OX = Math.min(0, Math.max(W - W*Z, OX)); OY = Math.min(0, Math.max(H - H*Z, OY));
+}
+function zoomAt(f, cx, cy){                              // cx,cy: toạ độ pixel ảnh giữ nguyên dưới con trỏ
+  var nz = Math.min(12, Math.max(1, Z * f));
+  OX = OX - cx*(nz - Z); OY = OY - cy*(nz - Z); Z = nz; clampView(); draw();
+}
+cv.addEventListener('wheel', function(e){
+  e.preventDefault();
+  var m = mouse(e);
+  zoomAt(Math.exp(-e.deltaY * 0.0016), m[0], m[1]);
+}, {passive:false});
+cv.addEventListener('dblclick', function(e){ var m = mouse(e); zoomAt(Z > 1.5 ? 1/Z : 2.5, m[0], m[1]); });
+document.getElementById('zin').onclick = function(){ zoomAt(1.4, (W/2-OX)/Z, (H/2-OY)/Z); };
+document.getElementById('zout').onclick = function(){ zoomAt(1/1.4, (W/2-OX)/Z, (H/2-OY)/Z); };
+document.getElementById('zfit').onclick = function(){ Z = 1; OX = OY = 0; draw(); };
+
+document.getElementById('prev').onclick = function(){ setFrame(cur-1); };
+document.getElementById('next').onclick = function(){ setFrame(cur+1); };
+document.getElementById('prev12').onclick = function(){ setFrame(cur-12); };
+document.getElementById('next12').onclick = function(){ setFrame(cur+12); };
+window.addEventListener('keydown', function(e){
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') setFrame(cur - (e.shiftKey ? 12 : 1));
+  if (e.key === 'ArrowRight') setFrame(cur + (e.shiftKey ? 12 : 1));
+});
+document.getElementById('timeline').addEventListener('click', function(e){
+  var r = this.getBoundingClientRect(); setFrame(Math.floor((e.clientX - r.left) / r.width * N));
+});
+document.getElementById('toggleVis').onclick = function(){
+  var d = polyAt(cur); if (!d) return;
+  if (!keys[cur]) keys[cur] = {v: d.v, p: d.p.slice()};
+  keys[cur].v = keys[cur].v ? 0 : 1; draw();
+};
+document.getElementById('delKey').onclick = function(){ delete keys[cur]; draw(); };
+
+/* ---- chọn / thêm / xoá hotspot ---- */
+function status(t){ document.getElementById('status').textContent = t; }
+var hsel = document.getElementById('hsel'), hname = document.getElementById('hname'), hlink = document.getElementById('hlink');
+
+function fillLinks(){
+  var sc = (window.SITE_CONFIG && SITE_CONFIG.scenes) || [];
+  var order = {pano:0, '2d':1, '360':2};
+  sc.slice().sort(function(a,b){ return (a.mode in order ? order[a.mode] : 9) - (b.mode in order ? order[b.mode] : 9); }).forEach(function(x){
+    var o = document.createElement('option'); o.value = x.id;
+    o.textContent = (x.mode === 'pano' ? '360° · ' : x.mode === '2d' ? '2D · ' : '') + x.name + ' (' + x.id + ')';
+    hlink.appendChild(o);
+  });
+}
+function refreshSelect(){
+  hsel.innerHTML = '';
+  Object.keys(all).forEach(function(id){
+    var o = document.createElement('option'); o.value = id; o.textContent = (all[id].name ? all[id].name + ' — ' : '') + id; hsel.appendChild(o);
+  });
+  if (curId) hsel.value = curId;
+}
+function selectHs(id){
+  curId = id; keys = all[id].keys;
+  hname.value = all[id].name || '';
+  hlink.value = all[id].link || '';
+  if (!hlink.value && hlink.options.length) { hlink.selectedIndex = 0; all[id].link = hlink.value; }
+  refreshSelect(); draw();
+}
+hsel.onchange = function(){ selectHs(hsel.value); };
+hname.oninput = function(){ if (curId) { all[curId].name = hname.value; refreshSelect(); draw(); } };
+hlink.onchange = function(){ if (curId) all[curId].link = hlink.value; };
+document.getElementById('addHs').onclick = function(){
+  var n = 1, id; do { id = 'can-' + (n < 10 ? '0' : '') + n++; } while (all[id]);
+  all[id] = {name: 'CĂN ' + id.slice(4), link: hlink.options.length ? hlink.options[0].value : '', keys: {}};
+  selectHs(id); status('Đã thêm ' + id + ' — bấm vào ảnh để đặt khối đầu tiên');
+};
+document.getElementById('delHs').onclick = function(){
+  if (!curId || !confirm('Xoá hotspot ' + curId + '?')) return;
+  delete all[curId];
+  var ids = Object.keys(all);
+  if (!ids.length) { all['can-01'] = {name:'CĂN 01', link:'', keys:{}}; ids = ['can-01']; }
+  selectHs(ids[0]);
+};
+
+document.getElementById('save').onclick = function(){
+  var out = {};
+  Object.keys(all).forEach(function(id){
+    var h = all[id], K = h.keys, ks = sortedKeysOf(K);
+    if (!ks.length) return;                              // bỏ hotspot rỗng
+    var frames = {}, i;
+    for (i = 0; i < N; i++) {
+      var d = polyAtKeys(K, i);
+      frames[pad(i)] = {v: d.v ? 1 : 0, p: d.p.map(function(x){ return Math.round(x*1e5)/1e5; })};
+    }
+    var kk = {}; ks.forEach(function(k){ kk[pad(k)] = K[k]; });
+    out[id] = {name: h.name || id, link: h.link || '', frames: frames, keys: kk};
+  });
+  if (!Object.keys(out).length) return status('Chưa có keyframe nào');
+  fetch('/save-hotspot', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({all: out})})
+    .then(function(r){ if (!r.ok) throw 0; status('Đã lưu ' + Object.keys(out).length + ' hotspot vào js/hotspots.json'); })
+    .catch(function(){ status('Lưu lỗi — hãy chạy: python tools/editor-server.py 8124'); });
+};
+
+fetch('../js/hotspots.json').then(function(r){ return r.json(); }).then(function(data){
+  Object.keys(data).forEach(function(id){
+    var e = data[id], K = {};
+    if (e.keys) Object.keys(e.keys).forEach(function(k){ K[Number(k)] = e.keys[k]; });
+    var sc = ((window.SITE_CONFIG && SITE_CONFIG.hotspots) || []).filter(function(h){ return h.id === id || h.key === id; })[0] || {};
+    all[id] = {name: e.name || sc.name || id, link: e.link || sc.link || '', keys: K};
+  });
+}).catch(function(){}).then(function(){
+  fillLinks();
+  var ids = Object.keys(all);
+  if (!ids.length) { all['can-01'] = {name:'CĂN 01', link:'', keys:{}}; ids = ['can-01']; }
+  // hotspot cũ chưa có keyframe (dữ liệu tự động): nạp polygon mẫu ở frame 0
+  ids.forEach(function(id){
+    if (!sortedKeysOf(all[id].keys).length && id === 'can-01') {
+      var pts = [[724,603],[792,627],[794,705],[728,679]];
+      all[id].keys[0] = {v:1, p: pts.reduce(function(a,q){ a.push(q[0]/1920, q[1]/1080); return a; }, [])};
+    }
+  });
+  selectHs(ids[0]);
+});
+window.addEventListener('resize', drawTimeline);
+</script>
+</body>
+</html>

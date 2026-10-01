@@ -146,6 +146,13 @@ window.SITE_CONFIG = {
     }
   ],
 
+  /* -------------------------------------------------------------------
+     HOTSPOT trên cảnh ngoại cảnh (khối line box phát sáng, bấm để vào nội thất)
+     Toàn bộ hotspot (vị trí từng frame, tên, cảnh sẽ mở) nằm trong js/hotspots.json,
+     chỉnh bằng tools/hotspot-editor.html (xem README).
+     ------------------------------------------------------------------- */
+  hotspotsData: 'js/hotspots.json',
+
   /* Chữ gợi ý trên màn hình */
   hints: {
     '360': 'CUỘN ĐỂ XOAY',

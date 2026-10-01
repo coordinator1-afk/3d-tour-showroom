@@ -146,3 +146,21 @@ Muốn **tự động deploy mỗi lần push**: vào Cloudflare Dashboard → *
 - Ảnh frame được vẽ kiểu *cover* nên luôn kín khung hình ở mọi tỉ lệ màn hình.
 - Frame được tải theo nhiều đợt (thưa trước, dày sau) nên có thể xoay ngay trong khi phần còn lại vẫn đang tải.
 - Nút **VIEW 360 / VIEW 2D** được dựng bằng CSS theo đúng phong cách trong `assets/ui/viewbar.png` (viên thuốc trắng cho trạng thái đang chọn) để có thể hiển thị trạng thái active/inactive; file `viewbar.png` giữ lại làm tham chiếu thiết kế.
+
+## Hotspot trên cảnh ngoại cảnh (khối line box phát sáng)
+
+Khối sáng bám theo từng căn khi xoay 360°; rê chuột hiện tên (tooltip), bấm vào hiện thẻ
+"VÀO XEM NỘI THẤT" dẫn tới cảnh bạn chọn (thường là ảnh 360° nội thất).
+
+Chỉnh bằng trang `tools/hotspot-editor.html`:
+
+```bash
+python tools/editor-server.py 8124      # rồi mở http://localhost:8124/tools/hotspot-editor.html
+```
+
+1. **＋ Thêm hotspot** hoặc chọn một hotspot có sẵn ở ô *Hotspot*; đặt **Tên** (hiện ở tooltip và thẻ) và **Đi tới** (ảnh 360°/2D sẽ mở).
+2. Bấm vào ảnh để đặt khối đầu tiên, kéo 4 đỉnh cho khớp tường. `Shift+→` nhảy 12 frame, kéo đỉnh ở frame đó để tạo keyframe tiếp theo.
+3. Ở keyframe cuối khi tường khuất, bấm "Đặt ẩn/hiện" để hotspot ẩn từ đó.
+4. **Lưu** → ghi `js/hotspots.json`. Trang chính tự đọc file này, các frame giữa hai keyframe được nội suy.
+
+`tools/track-hotspot.py` (tự dò theo camera bằng OpenCV) vẫn còn nhưng chỉ chính xác ở vài vị trí, nên dùng editor là chính.
