@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<title>Đặt camera trên mặt bằng</title>
+<title>Camera placement</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
 <style>
@@ -29,7 +29,7 @@ if (location.protocol === 'file:') {
   document.addEventListener('DOMContentLoaded', function () {
     var b = document.createElement('div');
     b.style.cssText = 'background:#b3261e;color:#fff;padding:10px 14px;font:14px system-ui';
-    b.innerHTML = 'Bạn đang mở file trực tiếp nên ảnh và nút Lưu không hoạt động. Hãy chạy <code>python tools/editor-server.py 8124</code> rồi mở <a style="color:#fff" href="http://localhost:8124/tools/camera-editor.html">http://localhost:8124/tools/camera-editor.html</a>';
+    b.innerHTML = 'You opened this file directly, so images and the Save button will not work. Run <code>python tools/editor-server.py 8124</code> and open <a style="color:#fff" href="http://localhost:8124/tools/camera-editor.html">http://localhost:8124/tools/camera-editor.html</a>';
     document.body.insertBefore(b, document.body.firstChild);
   });
 }
@@ -37,29 +37,29 @@ if (location.protocol === 'file:') {
 </head>
 <body>
 <header>
-  <b>Đặt camera trên mặt bằng</b>
-  <label>Ảnh 360° <select id="scene"></select></label>
-  <button class="ghost" id="del">Xoá vị trí camera này</button>
+  <b>Place cameras on the floor plan</b>
+  <label>360° image <select id="scene"></select></label>
+  <button class="ghost" id="del">Remove this camera</button>
   <button class="ghost" id="zin">🔍＋</button>
   <button class="ghost" id="zout">🔍−</button>
-  <button class="ghost" id="zfit">Vừa khung</button>
+  <button class="ghost" id="zfit">Fit</button>
   <span id="zlbl" style="color:var(--dim)">100%</span>
-  <button id="save">💾 Lưu vào js/cameras.json</button>
+  <button id="save">💾 Save to js/cameras.json</button>
   <span id="status"></span>
 </header>
 <main>
   <div class="panel">
-    <h3>Mặt bằng — bấm để đặt vị trí camera · kéo núm trắng ở đầu hình quạt để xoay hướng</h3>
+    <h3>Floor plan — click to place the camera · drag the white handle at the tip of the cone to set the direction</h3>
     <div id="mapWrap"><canvas id="map"></canvas></div>
-    <div class="tip">Lăn chuột = zoom · kéo chỗ trống = di chuyển mặt bằng · chấm xám = camera đã đặt cho ảnh khác.</div>
+    <div class="tip">Scroll = zoom · drag empty space = pan · grey dots = cameras already placed for other images.</div>
   </div>
   <div class="panel">
-    <h3>Xem thử ảnh 360° — xoay và zoom ở đây, hình quạt trên mặt bằng chạy theo</h3>
+    <h3>360° preview — rotate and zoom here, the cone on the plan follows</h3>
     <div id="pv"></div>
     <div class="tip">
-      Cách đặt: (1) bấm lên mặt bằng đúng chỗ người đứng chụp ảnh này; (2) xoay ảnh 360° tới một vật dễ nhận ra
-      (ví dụ sofa); (3) kéo núm trắng để hình quạt trên mặt bằng chỉ đúng vật đó. Zoom ảnh 360° thì hình quạt
-      sẽ hẹp lại, thu nhỏ thì mở rộng — đúng như người xem sẽ thấy ngoài trang chính.
+      How to: (1) click the floor plan where the photographer stood for this image; (2) rotate the 360° image to something
+      easy to recognise (e.g. the sofa); (3) drag the white handle until the cone on the plan points at that object. Zooming the
+      360° image narrows the cone and zooming out widens it — exactly what viewers will see on the main page.
     </div>
   </div>
 </main>
@@ -106,7 +106,7 @@ function openScene(id){
   document.getElementById('pv').innerHTML = '';
   if (window.pannellum && sc) {
     viewer = pannellum.viewer('pv', {type: 'equirectangular', panorama: '../' + sc.src, autoLoad: true, hfov: 100, showControls: true});
-  } else status('Không tải được Pannellum (cần mạng) — vẫn đặt được vị trí, hướng chỉnh bằng núm trắng');
+  } else status('Could not load Pannellum (internet required) — you can still place the position and set the direction with the white handle');
 }
 sel.onchange = function(){ openScene(sel.value); };
 
@@ -187,7 +187,7 @@ cv.addEventListener('pointerup', function(e){
     if (m[0] >= 0 && m[0] <= cv.width && m[1] >= 0 && m[1] <= cv.height) {
       var old = cams[curId];
       cams[curId] = {x: m[0]/cv.width, y: m[1]/cv.height, rot: old ? old.rot : 0};
-      fillSelect(); status('Đã đặt vị trí cho ' + curId + ' — nhớ kéo núm trắng cho đúng hướng rồi bấm Lưu');
+      fillSelect(); status('Position set for ' + curId + ' — remember to drag the white handle to the right direction, then Save');
     }
   }
 });
@@ -195,8 +195,8 @@ cv.addEventListener('pointerup', function(e){
 document.getElementById('del').onclick = function(){ if (curId) { delete cams[curId]; fillSelect(); } };
 document.getElementById('save').onclick = function(){
   fetch('/save-cameras', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({plan: planSrc, cams: cams})})
-    .then(function(r){ if (!r.ok) throw 0; status('Đã lưu ' + Object.keys(cams).length + ' camera vào js/cameras.json', true); })
-    .catch(function(){ status('Lưu lỗi — hãy chạy: python tools/editor-server.py 8124'); });
+    .then(function(r){ if (!r.ok) throw 0; status('Saved ' + Object.keys(cams).length + ' camera(s) to js/cameras.json', true); })
+    .catch(function(){ status('Save failed — run: python tools/editor-server.py 8124'); });
 };
 
 fetch('../js/cameras.json').then(function(r){ return r.json(); }).then(function(d){

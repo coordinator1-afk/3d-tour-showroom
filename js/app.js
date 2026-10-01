@@ -12,7 +12,7 @@
   var FRAMES  = CFG.frames || {};
 
   /* Nhãn hiển thị theo từng chế độ xem */
-  var MODE_LABEL = { '360': 'NGOẠI CẢNH', '2d': 'NỘI THẤT', 'pano': 'NỘI THẤT 360' };
+  var MODE_LABEL = { '360': 'EXTERIOR', '2d': 'INTERIOR', 'pano': 'INTERIOR 360' };
 
   var el = {
     canvas:      document.getElementById('framesView'),
@@ -233,7 +233,7 @@
     c.hidden = true;
     c.innerHTML =
       '<span class="hotspot-card__name"></span>' +
-      '<button class="hotspot-card__go" type="button">VÀO XEM NỘI THẤT <i>→</i></button>';
+      '<button class="hotspot-card__go" type="button">VIEW INTERIOR <i>→</i></button>';
     el.canvas.parentNode.appendChild(c);
     c.querySelector('.hotspot-card__go').addEventListener('click', function () {
       var it = H.open;
@@ -348,9 +348,9 @@
 
   function showNotice() {
     el.notice.innerHTML =
-      'Không tải được chuỗi ảnh tại <code>' + frameUrl(0) + '</code><br><br>' +
-      'Hãy chạy <code>tools/build-frames.ps1</code> để tạo thư mục <code>frames/</code> ' +
-      'từ ảnh gốc trong <code>Sequence1/</code>, rồi tải lại trang.';
+      'Could not load the image sequence at <code>' + frameUrl(0) + '</code><br><br>' +
+      'Run <code>tools/build-frames.ps1</code> to create the <code>frames/</code> folder ' +
+      'from the source images in <code>Sequence1/</code>, then reload the page.';
     el.notice.hidden = false;
   }
 
@@ -634,9 +634,9 @@
   function showPano(sc) {
     if (!window.pannellum) {
       el.notice.innerHTML =
-        'Không tải được thư viện <code>Pannellum</code> từ CDN.<br><br>' +
-        'Cần kết nối mạng, hoặc tải <code>pannellum.js</code> / <code>pannellum.css</code> ' +
-        'về đặt trong thư mục dự án rồi trỏ lại trong <code>index.html</code>.';
+        'Could not load the <code>Pannellum</code> library from the CDN.<br><br>' +
+        'An internet connection is required, or download <code>pannellum.js</code> / <code>pannellum.css</code> ' +
+        'into the project folder and point to them in <code>index.html</code>.';
       el.notice.hidden = false;
       return;
     }
@@ -687,16 +687,16 @@
     b.className = 'minimap';
     b.hidden = true;
     b.innerHTML =
-      '<img class="minimap__img" alt="Mặt bằng" draggable="false">' +
+      '<img class="minimap__img" alt="Floor plan" draggable="false">' +
       '<svg class="minimap__cone" width="' + MM.R * 2 + '" height="' + MM.R * 2 + '" viewBox="0 0 ' + MM.R * 2 + ' ' + MM.R * 2 + '">' +
         '<defs><radialGradient id="mmGrad" cx="50%" cy="50%" r="50%">' +
           '<stop offset="0" stop-color="#5ad2ff" stop-opacity=".95"/><stop offset="1" stop-color="#5ad2ff" stop-opacity="0"/>' +
         '</radialGradient></defs><path fill="url(#mmGrad)"/></svg>' +
       '<i class="minimap__dot"></i>' +
       '<div class="minimap__bar">' +
-        '<button type="button" data-mm="out" aria-label="Thu nhỏ minimap">−</button>' +
-        '<button type="button" data-mm="in" aria-label="Phóng to minimap">+</button>' +
-        '<button type="button" data-mm="hide" aria-label="Ẩn minimap">✕</button>' +
+        '<button type="button" data-mm="out" aria-label="Zoom out minimap">−</button>' +
+        '<button type="button" data-mm="in" aria-label="Zoom in minimap">+</button>' +
+        '<button type="button" data-mm="hide" aria-label="Hide minimap">✕</button>' +
       '</div>';
     el.canvas.parentNode.appendChild(b);
 
@@ -704,7 +704,7 @@
     t.type = 'button';
     t.className = 'minimap-toggle';
     t.hidden = true;
-    t.setAttribute('aria-label', 'Hiện minimap');
+    t.setAttribute('aria-label', 'Show minimap');
     t.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4Zm0 0v13m6-10v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
     el.canvas.parentNode.appendChild(t);
     MM.toggle = t;

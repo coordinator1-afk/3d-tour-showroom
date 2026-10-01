@@ -5,7 +5,7 @@
 
 window.SITE_CONFIG = {
   /* Tiêu đề hiển thị trên tab trình duyệt */
-  title: 'TỔNG THỂ — Tham quan 3D',
+  title: 'OVERVIEW — 3D Tour',
 
   /* Thương hiệu nhỏ ở góc trên bên phải */
   brand: 'VIETNAM',
@@ -48,25 +48,16 @@ window.SITE_CONFIG = {
   scenes: [
     {
       id: 'tong-the',
-      name: 'TỔNG THỂ',
-      subtitle: 'Toàn cảnh tòa nhà',
+      name: 'OVERVIEW',
+      subtitle: 'Building overview',
       mode: '360',
       type: 'frames',
       thumb: 'frames/1920/frame_000.webp'
     },
     {
-      id: 'mat-bang-01',
-      name: 'MẶT BẰNG 01',
-      subtitle: 'Bản vẽ mặt bằng',
-      mode: '2d',
-      type: 'plan',
-      src: 'assets/2d/plan-01.jpg',
-      thumb: 'assets/2d/plan-01.jpg'
-    },
-    {
       id: 'mat-bang-02',
-      name: 'MẶT BẰNG 02',
-      subtitle: 'Bản vẽ mặt bằng',
+      name: 'FLOOR PLAN 02',
+      subtitle: 'Floor plan',
       mode: '2d',
       type: 'plan',
       src: 'assets/2d/plan-02.jpg',
@@ -74,8 +65,8 @@ window.SITE_CONFIG = {
     },
     {
       id: 'ban-ve-03',
-      name: 'BẢN VẼ 03',
-      subtitle: 'Chi tiết kỹ thuật',
+      name: 'DRAWING 03',
+      subtitle: 'Technical details',
       mode: '2d',
       type: 'plan',
       src: 'assets/2d/plan-03.jpg',
@@ -83,8 +74,8 @@ window.SITE_CONFIG = {
     },
     {
       id: 'noi-that-01',
-      name: 'NỘI THẤT',
-      subtitle: 'Không gian nội thất',
+      name: 'INTERIOR',
+      subtitle: 'Interior space',
       mode: '2d',
       type: 'plan',
       src: 'assets/2d/plan-04.jpg',
@@ -92,57 +83,48 @@ window.SITE_CONFIG = {
     },
     {
       id: 'noi-that-360-01',
-      name: 'NỘI THẤT 01',
-      subtitle: 'Toàn cảnh 360°',
+      name: 'INTERIOR 01',
+      subtitle: '360° panorama',
       mode: 'pano',
       type: 'pano',
-      src: 'assets/pano/pano-01.jpg',
-      thumb: 'assets/pano/pano-01.jpg'
+      src: 'assets/pano/pano-01.webp',
+      thumb: 'assets/pano/pano-01.webp'
     },
     {
       id: 'noi-that-360-02',
-      name: 'NỘI THẤT 02',
-      subtitle: 'Toàn cảnh 360°',
+      name: 'INTERIOR 02',
+      subtitle: '360° panorama',
       mode: 'pano',
       type: 'pano',
-      src: 'assets/pano/pano-02.jpg',
-      thumb: 'assets/pano/pano-02.jpg'
+      src: 'assets/pano/pano-02.webp',
+      thumb: 'assets/pano/pano-02.webp'
     },
     {
       id: 'noi-that-360-03',
-      name: 'NỘI THẤT 03',
-      subtitle: 'Toàn cảnh 360°',
+      name: 'INTERIOR 03',
+      subtitle: '360° panorama',
       mode: 'pano',
       type: 'pano',
-      src: 'assets/pano/pano-03.jpg',
-      thumb: 'assets/pano/pano-03.jpg'
+      src: 'assets/pano/pano-03.webp',
+      thumb: 'assets/pano/pano-03.webp'
     },
     {
       id: 'noi-that-360-04',
-      name: 'NỘI THẤT 04',
-      subtitle: 'Toàn cảnh 360°',
+      name: 'INTERIOR 04',
+      subtitle: '360° panorama',
       mode: 'pano',
       type: 'pano',
-      src: 'assets/pano/pano-04.jpg',
-      thumb: 'assets/pano/pano-04.jpg'
+      src: 'assets/pano/pano-04.webp',
+      thumb: 'assets/pano/pano-04.webp'
     },
     {
       id: 'noi-that-360-05',
-      name: 'NỘI THẤT 05',
-      subtitle: 'Toàn cảnh 360°',
+      name: 'INTERIOR 05',
+      subtitle: '360° panorama',
       mode: 'pano',
       type: 'pano',
-      src: 'assets/pano/pano-05.jpg',
-      thumb: 'assets/pano/pano-05.jpg'
-    },
-    {
-      id: 'noi-that-360-06',
-      name: 'NỘI THẤT 06',
-      subtitle: 'Toàn cảnh 360°',
-      mode: 'pano',
-      type: 'pano',
-      src: 'assets/pano/pano-06.jpg',
-      thumb: 'assets/pano/pano-06.jpg'
+      src: 'assets/pano/pano-05.webp',
+      thumb: 'assets/pano/pano-05.webp'
     }
   ],
 
@@ -158,8 +140,8 @@ window.SITE_CONFIG = {
 
   /* Chữ gợi ý trên màn hình */
   hints: {
-    '360': 'CUỘN ĐỂ XOAY',
-    '2d': 'LĂN ĐỂ ZOOM · KÉO ĐỂ DI CHUYỂN',
-    'pano': 'KÉO ĐỂ XOAY · LĂN ĐỂ ZOOM'
+    '360': 'SCROLL TO ROTATE',
+    '2d': 'SCROLL TO ZOOM · DRAG TO MOVE',
+    'pano': 'DRAG TO ROTATE · SCROLL TO ZOOM'
   }
 };

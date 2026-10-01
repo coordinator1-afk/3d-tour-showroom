@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12150d">
-<title>TỔNG THỂ — Tham quan 3D</title>
+<title>OVERVIEW — 3D Tour</title>
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,10 +17,10 @@
 <div class="app">
 
   <!-- ============ KHUNG NHÌN ============ -->
-  <canvas id="framesView" class="viewer" aria-label="Cảnh toàn cảnh xoay 360 độ"></canvas>
+  <canvas id="framesView" class="viewer" aria-label="Exterior view, 360-degree rotation"></canvas>
 
   <div id="planView" class="viewer viewer--plan" hidden>
-    <img id="planImage" alt="Bản vẽ mặt bằng" draggable="false">
+    <img id="planImage" alt="Floor plan" draggable="false">
   </div>
 
   <!-- Khung xem toàn cảnh 360° (Pannellum) -->
@@ -30,13 +30,13 @@
 
   <!-- ============ HUD ============ -->
   <button id="menuBtn" class="menu-btn" type="button"
-          aria-label="Mở danh mục không gian" aria-expanded="false" aria-controls="drawer">
+          aria-label="Open scene list" aria-expanded="false" aria-controls="drawer">
     <img src="assets/ui/menu.png" alt="MENU" draggable="false">
   </button>
 
   <div class="scene-tag">
     <span class="scene-tag__idx" id="sceneIdx">01</span>
-    <span class="scene-tag__name" id="sceneName">TỔNG THỂ</span>
+    <span class="scene-tag__name" id="sceneName">OVERVIEW</span>
   </div>
 
   <!-- Gợi ý thao tác -->
@@ -45,24 +45,24 @@
       <rect x="1.2" y="1.2" width="21.6" height="37.6" rx="10.8" fill="none" stroke="currentColor" stroke-width="2.2"/>
       <rect class="hint__dot" x="10" y="7" width="4" height="9" rx="2" fill="currentColor"/>
     </svg>
-    <span class="hint__txt" id="hintText">CUỘN ĐỂ XOAY</span>
+    <span class="hint__txt" id="hintText">SCROLL TO ROTATE</span>
   </div>
 
   <!-- Chuyển chế độ xem -->
-  <div class="modebar" id="modebar" role="tablist" aria-label="Chế độ xem">
-    <button class="mode" data-mode="360" role="tab" type="button" aria-selected="true">NGOẠI CẢNH</button>
-    <button class="mode" data-mode="pano" role="tab" type="button" aria-selected="false">NỘI THẤT 360</button>
+  <div class="modebar" id="modebar" role="tablist" aria-label="View mode">
+    <button class="mode" data-mode="360" role="tab" type="button" aria-selected="true">EXTERIOR</button>
+    <button class="mode" data-mode="pano" role="tab" type="button" aria-selected="false">INTERIOR 360</button>
   </div>
 
   <!-- Chuyển ảnh trong mục NỘI THẤT -->
-  <div class="imgbar" id="imgbar" role="group" aria-label="Chuyển ảnh nội thất" hidden>
-    <button class="nav-btn" id="prevBtn" type="button" data-nav="-1" aria-label="Ảnh trước">
+  <div class="imgbar" id="imgbar" role="group" aria-label="Switch interior image" hidden>
+    <button class="nav-btn" id="prevBtn" type="button" data-nav="-1" aria-label="Previous image">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         <path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="2.4"
               stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
-    <button class="nav-btn" id="nextBtn" type="button" data-nav="1" aria-label="Ảnh sau">
+    <button class="nav-btn" id="nextBtn" type="button" data-nav="1" aria-label="Next image">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         <path d="M9 4l8 8-8 8" fill="none" stroke="currentColor" stroke-width="2.4"
               stroke-linecap="round" stroke-linejoin="round"/>
@@ -72,7 +72,7 @@
 
   <!-- Màn hình chờ -->
   <div class="loader" id="loader">
-    <div class="loader__brand">THAM QUAN 3D</div>
+    <div class="loader__brand">3D TOUR</div>
     <div class="loader__bar"><i id="loaderBar"></i></div>
     <div class="loader__pct"><span id="loaderPct">0</span><small>%</small></div>
   </div>
@@ -82,14 +82,14 @@
   <!-- ============ MENU ============ -->
   <div class="scrim" id="scrim" hidden></div>
 
-  <aside class="drawer" id="drawer" aria-hidden="true" aria-label="Danh mục không gian">
+  <aside class="drawer" id="drawer" aria-hidden="true" aria-label="Scene list">
     <div class="drawer__head">
-      <span class="drawer__title">DANH MỤC</span>
-      <button class="drawer__close" id="drawerClose" type="button" aria-label="Đóng danh mục">✕</button>
+      <span class="drawer__title">SCENES</span>
+      <button class="drawer__close" id="drawerClose" type="button" aria-label="Close list">✕</button>
     </div>
     <nav class="drawer__list" id="drawerList"></nav>
     <div class="drawer__foot">
-      <span>Dùng menu hoặc phím ← → để chuyển cảnh</span>
+      <span>Use the menu or the ← → keys to switch scenes</span>
     </div>
   </aside>
 
