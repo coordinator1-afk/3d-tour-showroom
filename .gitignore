@@ -3,6 +3,9 @@
 /Sequence1/
 /2d/
 
+# Thư mục tải ảnh gốc (bản trùng của assets/pano)
+/1/
+
 # Ảnh thiết kế tham chiếu ở thư mục gốc
 /*.png
 /*.jpg

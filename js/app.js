@@ -11,16 +11,21 @@
   var SCENES  = CFG.scenes || [];
   var FRAMES  = CFG.frames || {};
 
+  /* Nhãn hiển thị theo từng chế độ xem */
+  var MODE_LABEL = { '360': 'NGOẠI CẢNH', '2d': 'NỘI THẤT', 'pano': 'NỘI THẤT 360' };
+
   var el = {
     canvas:      document.getElementById('framesView'),
     planView:    document.getElementById('planView'),
     planImage:   document.getElementById('planImage'),
+    panoView:    document.getElementById('panoView'),
     menuBtn:     document.getElementById('menuBtn'),
     drawer:      document.getElementById('drawer'),
     drawerList:  document.getElementById('drawerList'),
     drawerClose: document.getElementById('drawerClose'),
     scrim:       document.getElementById('scrim'),
     modebar:     document.getElementById('modebar'),
+    imgbar:      document.getElementById('imgbar'),
     toolbar:     document.getElementById('toolbar'),
     hint:        document.getElementById('hint'),
     hintText:    document.getElementById('hintText'),
@@ -355,7 +360,7 @@
   /* ==============================================================
      ĐIỀU HƯỚNG KHÔNG GIAN
      ============================================================== */
-  var state = { id: null, lastByMode: { '360': null, '2d': null } };
+  var state = { id: null, lastByMode: { '360': null, '2d': null, 'pano': null } };
 
   function sceneById(id) {
     for (var i = 0; i < SCENES.length; i++) { if (SCENES[i].id === id) return SCENES[i]; }
@@ -366,6 +371,22 @@
     return null;
   }
 
+  /* Các ảnh cùng một chế độ xem (NỘI THẤT 2D hoặc NỘI THẤT 360) */
+  function scenesOfMode(mode) {
+    return SCENES.filter(function (s) { return s.mode === mode; });
+  }
+
+  /* Chuyển sang ảnh kế trước/kế sau trong cùng chế độ xem */
+  function stepScene(dir) {
+    var sc = state.id ? sceneById(state.id) : null;
+    if (!sc) return;
+    var list = scenesOfMode(sc.mode);
+    if (list.length < 2) return;
+    var i = 0;
+    for (var k = 0; k < list.length; k++) { if (list[k].id === sc.id) { i = k; break; } }
+    setScene(list[(i + dir + list.length) % list.length].id);
+  }
+
   function setScene(id, isFirst) {
     var sc = sceneById(id) || SCENES[0];
     if (!sc) return;
@@ -373,6 +394,8 @@
     state.lastByMode[sc.mode] = sc.id;
 
     var isFrames = sc.mode === '360';
+    var isPlan   = sc.mode === '2d';
+    var isPano   = sc.mode === 'pano';
 
     el.sceneIdx.textContent  = pad(SCENES.indexOf(sc) + 1, 2);
     el.sceneName.textContent = sc.name;
@@ -384,7 +407,9 @@
 
     T.active = isFrames;
     el.canvas.hidden   = !isFrames;
-    el.planView.hidden = isFrames;
+    el.planView.hidden = !isPlan;
+    el.panoView.hidden = !isPano;
+    if (!isPano && PANO.live) PANO.live = false;
 
     var spinBtn = el.toolbar.querySelector('[data-tool="spin"]');
     if (spinBtn) {
@@ -392,19 +417,86 @@
       if (!isFrames && T.spin) setSpin(false);
     }
 
+    /* Cụm nút chuyển ảnh chỉ hiện khi chế độ xem hiện tại có từ 2 ảnh */
+    if (el.imgbar) {
+      var hasNav = scenesOfMode(sc.mode).length >= 2;
+      el.imgbar.hidden = !hasNav;
+      document.body.classList.toggle('has-imgbar', hasNav);
+    }
+
     if (isFrames) {
       showHint((CFG.hints || {})['360']);
       loadSequence();
       T.dirty = true;
-    } else {
+    } else if (isPlan) {
       showHint((CFG.hints || {})['2d']);
       setPlanSrc(sc.src);
+    } else {
+      showHint((CFG.hints || {})['pano']);
+      showPano(sc);
     }
 
     updateDrawerActive();
     if (!isFirst) {
       try { history.replaceState(null, '', '#' + sc.id); } catch (_) {}
     }
+  }
+
+  /* ==============================================================
+     TOÀN CẢNH 360° — Pannellum (pannellum.org)
+     ============================================================== */
+  var PANO = { viewer: null, live: false };
+
+  /* Cấu hình nhiều cảnh cho Pannellum: mỗi ảnh nội thất là một scene */
+  function panoConfig(firstId) {
+    var o = CFG.pano || {};
+    var scenes = {};
+    scenesOfMode('pano').forEach(function (s) {
+      scenes[s.id] = {
+        type: 'equirectangular',
+        panorama: s.src,
+        hfov: o.hfov || 100,
+        pitch: o.pitch || 0,
+        yaw: o.yaw || 0
+      };
+    });
+    return {
+      default: {
+        firstScene: firstId,
+        autoLoad: true,
+        autoRotate: o.autoRotate || 0,
+        showControls: o.showControls !== false,
+        sceneFadeDuration: 500
+      },
+      scenes: scenes
+    };
+  }
+
+  function showPano(sc) {
+    if (!window.pannellum) {
+      el.notice.innerHTML =
+        'Không tải được thư viện <code>Pannellum</code> từ CDN.<br><br>' +
+        'Cần kết nối mạng, hoặc tải <code>pannellum.js</code> / <code>pannellum.css</code> ' +
+        'về đặt trong thư mục dự án rồi trỏ lại trong <code>index.html</code>.';
+      el.notice.hidden = false;
+      return;
+    }
+    el.notice.hidden = true;
+
+    /* Đang ở sẵn khung 360° thì chỉ chuyển sang cảnh mới */
+    if (PANO.viewer && PANO.live) {
+      PANO.viewer.loadScene(sc.id);
+      return;
+    }
+
+    /* Vừa quay lại từ chế độ khác: khung đã bị ẩn nên phải dựng lại */
+    if (PANO.viewer) {
+      PANO.viewer.destroy();
+      PANO.viewer = null;
+      el.panoView.innerHTML = '';
+    }
+    PANO.viewer = window.pannellum.viewer('panoView', panoConfig(sc.id));
+    PANO.live = true;
   }
 
   /* ==============================================================
@@ -438,7 +530,7 @@
 
       var badge = document.createElement('span');
       badge.className = 'scene__badge';
-      badge.textContent = sc.mode === '360' ? 'VIEW 360' : 'VIEW 2D';
+      badge.textContent = MODE_LABEL[sc.mode] || '';
 
       b.appendChild(thumb); b.appendChild(body); b.appendChild(badge);
       b.addEventListener('click', function () { setScene(sc.id); closeDrawer(); });
@@ -519,6 +611,13 @@
         setSpin(!T.spin);
         hideHint();
       }
+    });
+
+    on(el.imgbar, 'click', function (e) {
+      var b = e.target.closest('.nav-btn');
+      if (!b) return;
+      stepScene(parseInt(b.getAttribute('data-nav'), 10) || 0);
+      hideHint();
     });
 
     on(window, 'keydown', function (e) {

@@ -31,6 +31,15 @@ window.SITE_CONFIG = {
     padding: 48       // khoảng đệm khi tự căn vừa khung (px)
   },
 
+  /* Toàn cảnh 360° — dùng thư viện Pannellum (pannellum.org) */
+  pano: {
+    hfov: 100,        // góc nhìn ngang ban đầu (độ)
+    pitch: 0,         // góc ngẩng ban đầu
+    yaw: 0,           // hướng nhìn ban đầu
+    autoRotate: -2,   // tốc độ tự xoay (độ/giây), 0 = tắt
+    showControls: false // thanh điều khiển mặc định của Pannellum (zoom, toàn màn hình...)
+  },
+
   /* -------------------------------------------------------------------
      DANH SÁCH KHÔNG GIAN
      mode: '360'  -> xem chuỗi frame (cuộn/drag để xoay)
@@ -71,12 +80,76 @@ window.SITE_CONFIG = {
       type: 'plan',
       src: 'assets/2d/plan-03.jpg',
       thumb: 'assets/2d/plan-03.jpg'
+    },
+    {
+      id: 'noi-that-01',
+      name: 'NỘI THẤT',
+      subtitle: 'Không gian nội thất',
+      mode: '2d',
+      type: 'plan',
+      src: 'assets/2d/plan-04.jpg',
+      thumb: 'assets/2d/plan-04.jpg'
+    },
+    {
+      id: 'noi-that-360-01',
+      name: 'NỘI THẤT 01',
+      subtitle: 'Toàn cảnh 360°',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-01.jpg',
+      thumb: 'assets/pano/pano-01.jpg'
+    },
+    {
+      id: 'noi-that-360-02',
+      name: 'NỘI THẤT 02',
+      subtitle: 'Toàn cảnh 360°',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-02.jpg',
+      thumb: 'assets/pano/pano-02.jpg'
+    },
+    {
+      id: 'noi-that-360-03',
+      name: 'NỘI THẤT 03',
+      subtitle: 'Toàn cảnh 360°',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-03.jpg',
+      thumb: 'assets/pano/pano-03.jpg'
+    },
+    {
+      id: 'noi-that-360-04',
+      name: 'NỘI THẤT 04',
+      subtitle: 'Toàn cảnh 360°',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-04.jpg',
+      thumb: 'assets/pano/pano-04.jpg'
+    },
+    {
+      id: 'noi-that-360-05',
+      name: 'NỘI THẤT 05',
+      subtitle: 'Toàn cảnh 360°',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-05.jpg',
+      thumb: 'assets/pano/pano-05.jpg'
+    },
+    {
+      id: 'noi-that-360-06',
+      name: 'NỘI THẤT 06',
+      subtitle: 'Toàn cảnh 360°',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-06.jpg',
+      thumb: 'assets/pano/pano-06.jpg'
     }
   ],
 
   /* Chữ gợi ý trên màn hình */
   hints: {
     '360': 'CUỘN ĐỂ XOAY',
-    '2d': 'LĂN ĐỂ ZOOM · KÉO ĐỂ DI CHUYỂN'
+    '2d': 'LĂN ĐỂ ZOOM · KÉO ĐỂ DI CHUYỂN',
+    'pano': 'KÉO ĐỂ XOAY · LĂN ĐỂ ZOOM'
   }
 };
