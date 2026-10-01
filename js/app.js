@@ -26,7 +26,6 @@
     scrim:       document.getElementById('scrim'),
     modebar:     document.getElementById('modebar'),
     imgbar:      document.getElementById('imgbar'),
-    toolbar:     document.getElementById('toolbar'),
     hint:        document.getElementById('hint'),
     hintText:    document.getElementById('hintText'),
     loader:      document.getElementById('loader'),
@@ -274,6 +273,7 @@
 
   function tick() {
     requestAnimationFrame(tick);
+    minimapTick();
     if (!T.active || T.failed) return;
 
     if (T.spin && !T.dragging) T.pos += 0.4;
@@ -573,11 +573,7 @@
     el.panoView.hidden = !isPano;
     if (!isPano && PANO.live) PANO.live = false;
 
-    var spinBtn = el.toolbar.querySelector('[data-tool="spin"]');
-    if (spinBtn) {
-      spinBtn.disabled = !isFrames;
-      if (!isFrames && T.spin) setSpin(false);
-    }
+    if (!isFrames && T.spin) setSpin(false);
 
     /* Cụm nút chuyển ảnh chỉ hiện khi chế độ xem hiện tại có từ 2 ảnh */
     if (el.imgbar) {
@@ -599,6 +595,7 @@
     }
 
     updateDrawerActive();
+    updateMinimapScene();
     if (!isFirst) {
       try { history.replaceState(null, '', '#' + sc.id); } catch (_) {}
     }
@@ -659,6 +656,155 @@
     }
     PANO.viewer = window.pannellum.viewer('panoView', panoConfig(sc.id));
     PANO.live = true;
+  }
+
+  /* ==============================================================
+     MINIMAP — vị trí camera + hướng nhìn trên mặt bằng (cảnh 360° nội thất)
+     Dữ liệu: js/cameras.json  { plan, cams: { <id cảnh>: { x, y, rot } } }  (x,y chuẩn hoá 0..1)
+     Hình quạt xoay theo hướng nhìn, độ mở bằng góc nhìn (hfov) nên zoom vào/ra thì quạt hẹp/rộng.
+     ============================================================== */
+  var MM = { data: null, box: null, img: null, cone: null, path: null, dot: null, dots: [], id: null, lastKey: '', R: 52,
+             level: 1, hidden: false, toggle: null, scale: 1 };
+  var MM_WIDTHS = [130, 200, 300, 440];          // các cỡ minimap (px), phóng to / thu nhỏ theo nấc
+
+  function mmStore(k, v) {
+    try { if (v === undefined) return localStorage.getItem('mm_' + k); localStorage.setItem('mm_' + k, v); } catch (_) {}
+    return null;
+  }
+
+  function loadCameras() {
+    if (!window.fetch) return;
+    fetch(CFG.camerasData || 'js/cameras.json').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.cams) return;
+      MM.data = d;
+      buildMinimap();
+      updateMinimapScene();
+    }).catch(function () {});
+  }
+
+  function buildMinimap() {
+    var b = document.createElement('div');
+    b.className = 'minimap';
+    b.hidden = true;
+    b.innerHTML =
+      '<img class="minimap__img" alt="Mặt bằng" draggable="false">' +
+      '<svg class="minimap__cone" width="' + MM.R * 2 + '" height="' + MM.R * 2 + '" viewBox="0 0 ' + MM.R * 2 + ' ' + MM.R * 2 + '">' +
+        '<defs><radialGradient id="mmGrad" cx="50%" cy="50%" r="50%">' +
+          '<stop offset="0" stop-color="#5ad2ff" stop-opacity=".95"/><stop offset="1" stop-color="#5ad2ff" stop-opacity="0"/>' +
+        '</radialGradient></defs><path fill="url(#mmGrad)"/></svg>' +
+      '<i class="minimap__dot"></i>' +
+      '<div class="minimap__bar">' +
+        '<button type="button" data-mm="out" aria-label="Thu nhỏ minimap">−</button>' +
+        '<button type="button" data-mm="in" aria-label="Phóng to minimap">+</button>' +
+        '<button type="button" data-mm="hide" aria-label="Ẩn minimap">✕</button>' +
+      '</div>';
+    el.canvas.parentNode.appendChild(b);
+
+    var t = document.createElement('button');
+    t.type = 'button';
+    t.className = 'minimap-toggle';
+    t.hidden = true;
+    t.setAttribute('aria-label', 'Hiện minimap');
+    t.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4Zm0 0v13m6-10v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+    el.canvas.parentNode.appendChild(t);
+    MM.toggle = t;
+
+    var lv = parseInt(mmStore('level'), 10);
+    if (lv >= 0 && lv < MM_WIDTHS.length) MM.level = lv;
+    MM.hidden = mmStore('hidden') === '1';
+
+    b.querySelector('.minimap__bar').addEventListener('click', function (e) {
+      var a = e.target.closest('button');
+      if (!a) return;
+      var act = a.getAttribute('data-mm');
+      if (act === 'in')  MM.level = Math.min(MM_WIDTHS.length - 1, MM.level + 1);
+      if (act === 'out') MM.level = Math.max(0, MM.level - 1);
+      if (act === 'hide') MM.hidden = true;
+      mmStore('level', String(MM.level));
+      mmStore('hidden', MM.hidden ? '1' : '0');
+      applyMinimapSize();
+    });
+    t.addEventListener('click', function () {
+      MM.hidden = false;
+      mmStore('hidden', '0');
+      applyMinimapSize();
+    });
+    on(window, 'resize', applyMinimapSize);
+    MM.box = b;
+    MM.img = b.querySelector('.minimap__img');
+    MM.cone = b.querySelector('.minimap__cone');
+    MM.path = b.querySelector('path');
+    MM.dot = b.querySelector('.minimap__dot');
+    MM.img.src = MM.data.plan;
+  }
+
+  /* cỡ minimap + ẩn/hiện */
+  function applyMinimapSize() {
+    if (!MM.box) return;
+    var sc = state.id ? sceneById(state.id) : null;
+    var avail = !!(sc && sc.mode === 'pano' && MM.data.cams[sc.id]);
+    var w = Math.min(MM_WIDTHS[MM.level], Math.round(window.innerWidth * 0.62), Math.round(window.innerHeight * 0.62 * 1.08));
+    MM.box.style.width = w + 'px';
+    MM.scale = w / 200;
+    MM.cone.style.width = MM.cone.style.height = (MM.R * 2 * MM.scale) + 'px';
+    MM.box.hidden = !avail || MM.hidden;
+    MM.toggle.hidden = !avail || !MM.hidden;
+    var bar = MM.box.querySelector('.minimap__bar');
+    bar.querySelector('[data-mm="out"]').disabled = MM.level === 0;
+    bar.querySelector('[data-mm="in"]').disabled = MM.level === MM_WIDTHS.length - 1;
+    MM.lastKey = '';
+    minimapTick();
+  }
+
+  function mmPlace(node, c) {
+    node.style.left = (c.x * 100) + '%';
+    node.style.top = (c.y * 100) + '%';
+  }
+
+  function updateMinimapScene() {
+    if (!MM.box) return;
+    var sc = state.id ? sceneById(state.id) : null;
+    var c = sc && MM.data.cams[sc.id];
+    MM.id = c ? sc.id : null;
+    applyMinimapSize();
+    if (!c || !sc || sc.mode !== 'pano') return;
+
+    mmPlace(MM.cone, c);
+    mmPlace(MM.dot, c);
+
+    /* các camera khác: chấm nhỏ, bấm để sang cảnh đó */
+    MM.dots.forEach(function (d) { d.remove(); });
+    MM.dots = [];
+    Object.keys(MM.data.cams).forEach(function (id) {
+      if (id === sc.id || !sceneById(id)) return;
+      var o = document.createElement('button');
+      o.type = 'button';
+      o.className = 'minimap__other';
+      o.title = sceneById(id).name;
+      mmPlace(o, MM.data.cams[id]);
+      o.addEventListener('click', function () { setScene(id); });
+      MM.box.appendChild(o);
+      MM.dots.push(o);
+    });
+    MM.lastKey = '';
+    minimapTick();
+  }
+
+  /* gọi mỗi khung hình: đọc hướng nhìn & góc nhìn từ Pannellum */
+  function minimapTick() {
+    if (!MM.box || MM.box.hidden || !PANO.viewer || !PANO.live) return;
+    var c = MM.data.cams[MM.id];
+    if (!c) return;
+    var yaw = PANO.viewer.getYaw(), hfov = PANO.viewer.getHfov();
+    var key = yaw.toFixed(1) + '|' + hfov.toFixed(1);
+    if (key === MM.lastKey) return;
+    MM.lastKey = key;
+
+    var R = MM.R, h = clamp(hfov, 15, 140) * Math.PI / 360;       // nửa góc mở (rad)
+    var x1 = R + R * Math.sin(-h), y1 = R - R * Math.cos(h);
+    var x2 = R + R * Math.sin(h);
+    MM.path.setAttribute('d', 'M' + R + ',' + R + ' L' + x1 + ',' + y1 + ' A' + R + ',' + R + ' 0 0 1 ' + x2 + ',' + y1 + ' Z');
+    MM.cone.style.transform = 'translate(-50%,-50%) rotate(' + (yaw + (c.rot || 0)) + 'deg)';
   }
 
   /* ==============================================================
@@ -728,11 +874,6 @@
      ============================================================== */
   function setSpin(on) {
     T.spin = !!on;
-    var btn = el.toolbar.querySelector('[data-tool="spin"]');
-    if (btn) {
-      btn.classList.toggle('is-active', T.spin);
-      btn.setAttribute('aria-pressed', String(T.spin));
-    }
   }
 
   /* ==============================================================
@@ -744,6 +885,7 @@
     buildDrawer();
     resizeCanvas();
     loadHotspots();
+    loadCameras();
 
     on(el.menuBtn, 'click', function () {
       el.drawer.classList.contains('is-open') ? closeDrawer() : openDrawer();
@@ -757,23 +899,6 @@
       var mode = b.getAttribute('data-mode');
       var target = state.lastByMode[mode] || (firstOfMode(mode) && firstOfMode(mode).id);
       if (target) setScene(target);
-    });
-
-    on(el.toolbar, 'click', function (e) {
-      var b = e.target.closest('.toolbar__btn');
-      if (!b || b.disabled) return;
-      var tool = b.getAttribute('data-tool');
-      if (tool === 'plan') {
-        var t = state.lastByMode['2d'] || (firstOfMode('2d') && firstOfMode('2d').id);
-        if (t) setScene(t);
-      } else if (tool === 'spin') {
-        if (state.id && sceneById(state.id).mode !== '360') {
-          var f = firstOfMode('360');
-          if (f) setScene(f.id);
-        }
-        setSpin(!T.spin);
-        hideHint();
-      }
     });
 
     on(el.imgbar, 'click', function (e) {

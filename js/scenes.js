@@ -153,6 +153,9 @@ window.SITE_CONFIG = {
      ------------------------------------------------------------------- */
   hotspotsData: 'js/hotspots.json',
 
+  /* Minimap vị trí camera trong các cảnh 360° nội thất (đặt bằng tools/camera-editor.html) */
+  camerasData: 'js/cameras.json',
+
   /* Chữ gợi ý trên màn hình */
   hints: {
     '360': 'CUỘN ĐỂ XOAY',

@@ -26,6 +26,16 @@
   #status { color:var(--dim); margin-left:auto; }
   .tip { padding:0 14px 10px; color:var(--dim); font-size:13px; }
 </style>
+<script>
+if (location.protocol === 'file:') {
+  document.addEventListener('DOMContentLoaded', function () {
+    var b = document.createElement('div');
+    b.style.cssText = 'background:#b3261e;color:#fff;padding:10px 14px;font:14px system-ui';
+    b.innerHTML = 'Bạn đang mở file trực tiếp nên ảnh và nút Lưu không hoạt động. Hãy chạy <code>python tools/editor-server.py 8124</code> rồi mở <a style="color:#fff" href="http://localhost:8124/tools/hotspot-editor.html">http://localhost:8124/tools/hotspot-editor.html</a>';
+    document.body.insertBefore(b, document.body.firstChild);
+  });
+}
+</script>
 </head>
 <body>
 <header>

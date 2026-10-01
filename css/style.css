@@ -588,3 +588,88 @@ body.has-imgbar .hint { bottom: calc(var(--edge-y) + 90px); }
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* ---------- Minimap vị trí camera (cảnh 360° nội thất) ---------- */
+.minimap {
+  position: fixed;
+  z-index: 7;
+  left: var(--edge-x);
+  bottom: var(--edge-y);
+  width: clamp(150px, 20vw, 260px);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f5f4ef;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .45);
+}
+.minimap__img { display: block; width: 100%; height: auto; user-select: none; opacity: .92; }
+.minimap__cone {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  overflow: visible;
+}
+.minimap__dot {
+  position: absolute;
+  width: 11px; height: 11px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #1aa7e0;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(26, 167, 224, .45), 0 0 10px rgba(26, 167, 224, .9);
+  pointer-events: none;
+}
+.minimap__other {
+  position: absolute;
+  width: 14px; height: 14px;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgba(20, 23, 15, .55);
+  cursor: pointer;
+}
+.minimap__other:hover { background: #1aa7e0; }
+@media (max-width: 640px) { .minimap { bottom: 76px; } }
+
+/* nút phóng to / thu nhỏ / ẩn minimap */
+.minimap__bar {
+  position: absolute;
+  top: 6px; right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: .0;
+  transition: opacity .2s;
+}
+.minimap:hover .minimap__bar, .minimap:focus-within .minimap__bar { opacity: 1; }
+@media (hover: none) { .minimap__bar { opacity: 1; } }
+.minimap__bar button {
+  width: 24px; height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(18, 21, 13, .78);
+  color: #fff;
+  font: 700 15px/1 var(--font-ui);
+  cursor: pointer;
+}
+.minimap__bar button:hover:not(:disabled) { background: #1aa7e0; }
+.minimap__bar button:disabled { opacity: .35; cursor: default; }
+.minimap-toggle {
+  position: fixed;
+  z-index: 7;
+  left: var(--edge-x);
+  bottom: var(--edge-y);
+  width: 42px; height: 42px;
+  padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: rgba(18, 21, 13, .7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #fff;
+  cursor: pointer;
+}
+.minimap-toggle:hover { background: #1aa7e0; }
+@media (max-width: 640px) { .minimap-toggle { bottom: 76px; } }

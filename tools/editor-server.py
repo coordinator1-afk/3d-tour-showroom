@@ -19,10 +19,18 @@ class H(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_POST(self):
-        if self.path.split('?')[0] != '/save-hotspot':
+        route = self.path.split('?')[0]
+        if route not in ('/save-hotspot', '/save-cameras'):
             self.send_error(404)
             return
         body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        if route == '/save-cameras':
+            with open(os.path.join(ROOT, 'js', 'cameras.json'), 'w', encoding='utf-8') as f:
+                json.dump(body, f, ensure_ascii=False, separators=(',', ':'))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'ok')
+            return
         path = os.path.join(ROOT, 'js', 'hotspots.json')
         if 'all' in body:
             data = body['all']                       # ghi de toan bo (them/xoa/doi ten/doi link)

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đặt camera trên mặt bằng</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+<style>
+  :root { --bg:#12150d; --ink:#efe9ef; --dim:rgba(239,233,239,.6); }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px system-ui, sans-serif; min-height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.12); }
+  button { background:#f4f2ee; color:#14170f; border:0; border-radius:8px; padding:7px 12px; cursor:pointer; font:inherit; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid rgba(255,255,255,.3); }
+  select { background:#1a1e11; color:var(--ink); border:1px solid rgba(255,255,255,.25); border-radius:6px; padding:6px 8px; max-width:260px; }
+  main { flex:1; display:grid; grid-template-columns: 1.1fr 1fr; gap:10px; padding:10px; min-height:0; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background:#0c0e08; border:1px solid rgba(255,255,255,.12); border-radius:10px; overflow:hidden; display:flex; flex-direction:column; min-height:360px; }
+  .panel h3 { margin:0; padding:8px 12px; font-size:13px; color:var(--dim); font-weight:600; border-bottom:1px solid rgba(255,255,255,.1); }
+  #mapWrap { flex:1; display:flex; align-items:center; justify-content:center; padding:6px; min-height:0; }
+  #map { max-width:100%; max-height:70vh; background:#f5f4ef; cursor:crosshair; touch-action:none; }
+  #pv { flex:1; min-height:360px; }
+  #status { margin-left:auto; color:var(--dim); }
+  .tip { padding:6px 12px 10px; color:var(--dim); font-size:13px; line-height:1.5; }
+  .done { color:#8fe08f; }
+</style>
+<script>
+if (location.protocol === 'file:') {
+  document.addEventListener('DOMContentLoaded', function () {
+    var b = document.createElement('div');
+    b.style.cssText = 'background:#b3261e;color:#fff;padding:10px 14px;font:14px system-ui';
+    b.innerHTML = 'Bạn đang mở file trực tiếp nên ảnh và nút Lưu không hoạt động. Hãy chạy <code>python tools/editor-server.py 8124</code> rồi mở <a style="color:#fff" href="http://localhost:8124/tools/camera-editor.html">http://localhost:8124/tools/camera-editor.html</a>';
+    document.body.insertBefore(b, document.body.firstChild);
+  });
+}
+</script>
+</head>
+<body>
+<header>
+  <b>Đặt camera trên mặt bằng</b>
+  <label>Ảnh 360° <select id="scene"></select></label>
+  <button class="ghost" id="del">Xoá vị trí camera này</button>
+  <button class="ghost" id="zin">🔍＋</button>
+  <button class="ghost" id="zout">🔍−</button>
+  <button class="ghost" id="zfit">Vừa khung</button>
+  <span id="zlbl" style="color:var(--dim)">100%</span>
+  <button id="save">💾 Lưu vào js/cameras.json</button>
+  <span id="status"></span>
+</header>
+<main>
+  <div class="panel">
+    <h3>Mặt bằng — bấm để đặt vị trí camera · kéo núm trắng ở đầu hình quạt để xoay hướng</h3>
+    <div id="mapWrap"><canvas id="map"></canvas></div>
+    <div class="tip">Lăn chuột = zoom · kéo chỗ trống = di chuyển mặt bằng · chấm xám = camera đã đặt cho ảnh khác.</div>
+  </div>
+  <div class="panel">
+    <h3>Xem thử ảnh 360° — xoay và zoom ở đây, hình quạt trên mặt bằng chạy theo</h3>
+    <div id="pv"></div>
+    <div class="tip">
+      Cách đặt: (1) bấm lên mặt bằng đúng chỗ người đứng chụp ảnh này; (2) xoay ảnh 360° tới một vật dễ nhận ra
+      (ví dụ sofa); (3) kéo núm trắng để hình quạt trên mặt bằng chỉ đúng vật đó. Zoom ảnh 360° thì hình quạt
+      sẽ hẹp lại, thu nhỏ thì mở rộng — đúng như người xem sẽ thấy ngoài trang chính.
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+<script src="../js/scenes.js"></script>
+<script>
+var cv = document.getElementById('map'), ctx = cv.getContext('2d');
+var planSrc = 'assets/2d/plan-04.jpg';
+var cams = {};                       // id -> {x, y, rot}  (x,y chuẩn hoá 0..1)
+var curId = null, viewer = null, planImg = null;
+var Z = 1, OX = 0, OY = 0;           // zoom + dịch chuyển (pixel ảnh)
+var mode = null, pan = null, downAt = null;
+var R_PX = 70;                       // bán kính hình quạt (pixel màn hình)
+
+var scenes = ((window.SITE_CONFIG && SITE_CONFIG.scenes) || []).filter(function(s){ return s.mode === 'pano'; });
+var sel = document.getElementById('scene');
+function status(t, ok){ var e = document.getElementById('status'); e.textContent = t; e.className = ok ? 'done' : ''; }
+
+/* ---- đơn vị: 1 px màn hình = k pixel canvas ---- */
+function k(){ return cv.width / cv.getBoundingClientRect().width / Z; }
+function toImg(e){
+  var r = cv.getBoundingClientRect();
+  return [((e.clientX - r.left) / r.width * cv.width - OX) / Z, ((e.clientY - r.top) / r.height * cv.height - OY) / Z];
+}
+function viewState(){
+  if (!viewer) return {yaw: 0, hfov: 100};
+  return {yaw: viewer.getYaw(), hfov: viewer.getHfov()};
+}
+
+function fillSelect(){
+  sel.innerHTML = '';
+  scenes.forEach(function(s){
+    var o = document.createElement('option'); o.value = s.id;
+    o.textContent = (cams[s.id] ? '✓ ' : '○ ') + s.name + ' (' + s.id + ')'; sel.appendChild(o);
+  });
+  if (curId) sel.value = curId;
+}
+
+function openScene(id){
+  curId = id; sel.value = id; fillSelect();
+  var sc = scenes.filter(function(s){ return s.id === id; })[0];
+  if (viewer) { try { viewer.destroy(); } catch (e) {} viewer = null; }
+  document.getElementById('pv').innerHTML = '';
+  if (window.pannellum && sc) {
+    viewer = pannellum.viewer('pv', {type: 'equirectangular', panorama: '../' + sc.src, autoLoad: true, hfov: 100, showControls: true});
+  } else status('Không tải được Pannellum (cần mạng) — vẫn đặt được vị trí, hướng chỉnh bằng núm trắng');
+}
+sel.onchange = function(){ openScene(sel.value); };
+
+/* ---- vẽ ---- */
+function drawCam(c, active, vs){
+  var u = k(), px = c.x * cv.width, py = c.y * cv.height;
+  if (!active) {
+    ctx.beginPath(); ctx.arc(px, py, 6*u, 0, 7); ctx.fillStyle = 'rgba(90,90,90,.85)'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2*u; ctx.stroke(); return;
+  }
+  var ang = (vs.yaw + (c.rot || 0)) * Math.PI / 180, half = Math.max(15, Math.min(140, vs.hfov)) * Math.PI / 360, R = R_PX * u;
+  ctx.save(); ctx.translate(px, py);
+  var g = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  g.addColorStop(0, 'rgba(90,210,255,.95)'); g.addColorStop(1, 'rgba(90,210,255,0)');
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.arc(0, 0, R, ang - Math.PI/2 - half, ang - Math.PI/2 + half); ctx.closePath();
+  ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(px, py, 6.5*u, 0, 7); ctx.fillStyle = '#1aa7e0'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5*u; ctx.stroke();
+  // núm xoay hướng
+  var hx = px + Math.sin(ang) * R_PX * u * 0.9, hy = py - Math.cos(ang) * R_PX * u * 0.9;
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(hx, hy); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5*u; ctx.stroke();
+  ctx.beginPath(); ctx.arc(hx, hy, 7*u, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#1aa7e0'; ctx.lineWidth = 2*u; ctx.stroke();
+}
+function handlePos(c, vs){
+  var u = k(), ang = (vs.yaw + (c.rot || 0)) * Math.PI / 180;
+  return [c.x * cv.width + Math.sin(ang) * R_PX * u * 0.9, c.y * cv.height - Math.cos(ang) * R_PX * u * 0.9];
+}
+function frame(){
+  requestAnimationFrame(frame);
+  if (!planImg || !planImg.naturalWidth) return;
+  var W = cv.width, H = cv.height, vs = viewState();
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H);
+  ctx.setTransform(Z,0,0,Z,OX,OY); ctx.drawImage(planImg, 0, 0, W, H);
+  Object.keys(cams).forEach(function(id){ if (id !== curId) drawCam(cams[id], false); });
+  if (curId && cams[curId]) drawCam(cams[curId], true, vs);
+  document.getElementById('zlbl').textContent = Math.round(Z*100) + '%';
+}
+
+/* ---- chuột ---- */
+function clampView(){ OX = Math.min(0, Math.max(cv.width - cv.width*Z, OX)); OY = Math.min(0, Math.max(cv.height - cv.height*Z, OY)); }
+function zoomAt(f, cx, cy){
+  var nz = Math.min(10, Math.max(1, Z*f)); OX -= cx*(nz-Z); OY -= cy*(nz-Z); Z = nz; clampView();
+}
+cv.addEventListener('wheel', function(e){ e.preventDefault(); var m = toImg(e); zoomAt(Math.exp(-e.deltaY*0.0016), m[0], m[1]); }, {passive:false});
+document.getElementById('zin').onclick = function(){ zoomAt(1.4, (cv.width/2-OX)/Z, (cv.height/2-OY)/Z); };
+document.getElementById('zout').onclick = function(){ zoomAt(1/1.4, (cv.width/2-OX)/Z, (cv.height/2-OY)/Z); };
+document.getElementById('zfit').onclick = function(){ Z = 1; OX = OY = 0; };
+
+cv.addEventListener('pointerdown', function(e){
+  var m = toImg(e), c = curId && cams[curId], vs = viewState();
+  downAt = {x: e.clientX, y: e.clientY};
+  if (c) {
+    var h = handlePos(c, vs), d = Math.hypot(h[0]-m[0], h[1]-m[1]);
+    if (d < 14 * k()) { mode = 'rot'; cv.setPointerCapture(e.pointerId); return; }
+    if (Math.hypot(c.x*cv.width-m[0], c.y*cv.height-m[1]) < 12*k()) { mode = 'move'; cv.setPointerCapture(e.pointerId); return; }
+  }
+  mode = 'pan'; pan = {x: e.clientX, y: e.clientY, ox: OX, oy: OY}; cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', function(e){
+  if (!mode) return;
+  var m = toImg(e), c = curId && cams[curId], r = cv.getBoundingClientRect();
+  if (mode === 'rot' && c) {
+    var a = Math.atan2(m[0]-c.x*cv.width, -(m[1]-c.y*cv.height)) * 180 / Math.PI;
+    c.rot = Math.round((a - viewState().yaw) * 10) / 10;
+  } else if (mode === 'move' && c) {
+    c.x = Math.min(1, Math.max(0, m[0]/cv.width)); c.y = Math.min(1, Math.max(0, m[1]/cv.height));
+  } else if (mode === 'pan') {
+    OX = pan.ox + (e.clientX-pan.x)/r.width*cv.width; OY = pan.oy + (e.clientY-pan.y)/r.height*cv.height; clampView();
+  }
+});
+cv.addEventListener('pointerup', function(e){
+  var wasPan = mode === 'pan';
+  mode = null;
+  if (wasPan && downAt && Math.hypot(e.clientX-downAt.x, e.clientY-downAt.y) < 4 && curId) {   // bấm (không kéo) → đặt vị trí
+    var m = toImg(e);
+    if (m[0] >= 0 && m[0] <= cv.width && m[1] >= 0 && m[1] <= cv.height) {
+      var old = cams[curId];
+      cams[curId] = {x: m[0]/cv.width, y: m[1]/cv.height, rot: old ? old.rot : 0};
+      fillSelect(); status('Đã đặt vị trí cho ' + curId + ' — nhớ kéo núm trắng cho đúng hướng rồi bấm Lưu');
+    }
+  }
+});
+
+document.getElementById('del').onclick = function(){ if (curId) { delete cams[curId]; fillSelect(); } };
+document.getElementById('save').onclick = function(){
+  fetch('/save-cameras', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({plan: planSrc, cams: cams})})
+    .then(function(r){ if (!r.ok) throw 0; status('Đã lưu ' + Object.keys(cams).length + ' camera vào js/cameras.json', true); })
+    .catch(function(){ status('Lưu lỗi — hãy chạy: python tools/editor-server.py 8124'); });
+};
+
+fetch('../js/cameras.json').then(function(r){ return r.json(); }).then(function(d){
+  if (d.plan) planSrc = d.plan; if (d.cams) cams = d.cams;
+}).catch(function(){}).then(function(){
+  planImg = new Image();
+  planImg.onload = function(){
+    cv.width = planImg.naturalWidth; cv.height = planImg.naturalHeight;
+    if (scenes.length) openScene(scenes[0].id);
+    requestAnimationFrame(frame);
+  };
+  planImg.src = '../' + planSrc;
+});
+</script>
+</body>
+</html>

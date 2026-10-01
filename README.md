@@ -164,3 +164,14 @@ python tools/editor-server.py 8124      # rồi mở http://localhost:8124/tools
 4. **Lưu** → ghi `js/hotspots.json`. Trang chính tự đọc file này, các frame giữa hai keyframe được nội suy.
 
 `tools/track-hotspot.py` (tự dò theo camera bằng OpenCV) vẫn còn nhưng chỉ chính xác ở vài vị trí, nên dùng editor là chính.
+
+## Minimap vị trí camera (ảnh nội thất 360°)
+
+Ở mỗi ảnh 360° nội thất, góc trái dưới hiện mặt bằng thu nhỏ với chấm vị trí camera và hình quạt hướng nhìn.
+Hình quạt xoay theo hướng người xem đang nhìn và **rộng/hẹp theo mức zoom** (zoom vào quạt hẹp lại, thu nhỏ quạt mở rộng).
+Chấm nhỏ trắng là camera của các ảnh khác, bấm vào để chuyển sang ảnh đó.
+
+Đặt vị trí bằng `tools/camera-editor.html` (chạy `python tools/editor-server.py 8124`, mở
+`http://localhost:8124/tools/camera-editor.html`): chọn ảnh 360° → bấm lên mặt bằng đúng chỗ đứng → xoay ảnh xem thử tới
+vật dễ nhận ra rồi kéo núm trắng cho quạt chỉ đúng hướng → **Lưu** (ghi `js/cameras.json`, mặt bằng dùng `assets/2d/plan-04.jpg`).
+Ảnh nào chưa đặt vị trí thì không hiện minimap.
