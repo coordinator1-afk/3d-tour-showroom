@@ -214,15 +214,15 @@
     var now = performance.now(), dt = Math.min(0.1, (now - (H.last || now)) / 1000);
     H.last = now;
     var moving = T.dragging || T.spin || Math.abs(T.vel) > 0.02;
-    var target = moving ? 0 : 1, a = H.alpha;
-    a += (target - a) * (1 - Math.exp(-dt * (moving ? 18 : 5)));
+    var target = moving ? 0.55 : 1, a = H.alpha;      // vẫn hiện khi xoay (mờ hơn), rõ dần khi dừng
+    a += (target - a) * (1 - Math.exp(-dt * (moving ? 10 : 6)));
     if (Math.abs(target - a) < 0.004) a = target;
     if (a !== H.alpha) { H.alpha = a; T.dirty = true; }
-    if (H.card) H.card.style.opacity = a < 0.05 ? '0' : String(a);
+    if (H.card) H.card.style.opacity = a < 0.05 ? '0' : String(Math.min(1, a * 1.4));
   }
 
   function hotspotAt(x, y) {
-    if (H.alpha < 0.5) return null;
+    if (H.alpha < 0.1) return null;
     for (var i = 0; i < H.items.length; i++) {
       var s = H.items[i].screen;
       if (s && pointInPoly(x, y, s)) return H.items[i];
