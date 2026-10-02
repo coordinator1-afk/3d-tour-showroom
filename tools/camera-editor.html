@@ -39,6 +39,7 @@ if (location.protocol === 'file:') {
 <header>
   <b>Place cameras on the floor plan</b>
   <label>360° image <select id="scene"></select></label>
+  <label>Floor plan <select id="plansel"></select></label>
   <button class="ghost" id="del">Remove this camera</button>
   <button class="ghost" id="zin">🔍＋</button>
   <button class="ghost" id="zout">🔍−</button>
@@ -68,7 +69,8 @@ if (location.protocol === 'file:') {
 <script src="../js/scenes.js"></script>
 <script>
 var cv = document.getElementById('map'), ctx = cv.getContext('2d');
-var planSrc = 'assets/2d/plan-04.jpg';
+var planSrc = 'assets/2d/plan-04.jpg';   // mặt bằng mặc định (cho camera chưa chọn riêng)
+var curPlan = planSrc;                    // mặt bằng đang hiển thị
 var cams = {};                       // id -> {x, y, rot}  (x,y chuẩn hoá 0..1)
 var curId = null, viewer = null, planImg = null;
 var Z = 1, OX = 0, OY = 0;           // zoom + dịch chuyển (pixel ảnh)
@@ -77,6 +79,35 @@ var R_PX = 70;                       // bán kính hình quạt (pixel màn hìn
 
 var scenes = ((window.SITE_CONFIG && SITE_CONFIG.scenes) || []).filter(function(s){ return s.mode === 'pano'; });
 var sel = document.getElementById('scene');
+var plans = ((window.SITE_CONFIG && SITE_CONFIG.scenes) || []).filter(function(s){ return s.type === 'plan'; });
+var psel = document.getElementById('plansel');
+function planOf(c){ return (c && c.plan) || planSrc; }
+function fillPlans(){
+  psel.innerHTML = '';
+  var seen = {};
+  plans.forEach(function(s){
+    if (seen[s.src]) return; seen[s.src] = 1;
+    var o = document.createElement('option'); o.value = s.src; o.textContent = s.name + ' (' + s.src.split('/').pop() + ')'; psel.appendChild(o);
+  });
+  if (!seen[curPlan]) { var o = document.createElement('option'); o.value = curPlan; o.textContent = curPlan; psel.appendChild(o); }
+  psel.value = curPlan;
+}
+function loadPlan(src, done){
+  curPlan = src; psel.value = src;
+  var im = new Image();
+  im.onload = function(){
+    planImg = im; cv.width = im.naturalWidth; cv.height = im.naturalHeight; Z = 1; OX = OY = 0;
+    if (done) done();
+  };
+  im.src = '../' + src;
+}
+psel.onchange = function(){
+  var src = psel.value;
+  loadPlan(src, function(){
+    if (curId && cams[curId]) cams[curId].plan = src;
+    status('Floor plan for ' + curId + ' → ' + src + (cams[curId] ? '' : ' (click the plan to place the camera)'));
+  });
+};
 function status(t, ok){ var e = document.getElementById('status'); e.textContent = t; e.className = ok ? 'done' : ''; }
 
 /* ---- đơn vị: 1 px màn hình = k pixel canvas ---- */
@@ -101,6 +132,7 @@ function fillSelect(){
 
 function openScene(id){
   curId = id; sel.value = id; fillSelect();
+  if (cams[id] && planOf(cams[id]) !== curPlan) loadPlan(planOf(cams[id]));
   var sc = scenes.filter(function(s){ return s.id === id; })[0];
   if (viewer) { try { viewer.destroy(); } catch (e) {} viewer = null; }
   document.getElementById('pv').innerHTML = '';
@@ -142,7 +174,7 @@ function frame(){
   var W = cv.width, H = cv.height, vs = viewState();
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H);
   ctx.setTransform(Z,0,0,Z,OX,OY); ctx.drawImage(planImg, 0, 0, W, H);
-  Object.keys(cams).forEach(function(id){ if (id !== curId) drawCam(cams[id], false); });
+  Object.keys(cams).forEach(function(id){ if (id !== curId && planOf(cams[id]) === curPlan) drawCam(cams[id], false); });
   if (curId && cams[curId]) drawCam(cams[curId], true, vs);
   document.getElementById('zlbl').textContent = Math.round(Z*100) + '%';
 }
@@ -186,7 +218,7 @@ cv.addEventListener('pointerup', function(e){
     var m = toImg(e);
     if (m[0] >= 0 && m[0] <= cv.width && m[1] >= 0 && m[1] <= cv.height) {
       var old = cams[curId];
-      cams[curId] = {x: m[0]/cv.width, y: m[1]/cv.height, rot: old ? old.rot : 0};
+      cams[curId] = {x: m[0]/cv.width, y: m[1]/cv.height, rot: old ? old.rot : 0, plan: curPlan};
       fillSelect(); status('Position set for ' + curId + ' — remember to drag the white handle to the right direction, then Save');
     }
   }
@@ -202,13 +234,12 @@ document.getElementById('save').onclick = function(){
 fetch('../js/cameras.json').then(function(r){ return r.json(); }).then(function(d){
   if (d.plan) planSrc = d.plan; if (d.cams) cams = d.cams;
 }).catch(function(){}).then(function(){
-  planImg = new Image();
-  planImg.onload = function(){
-    cv.width = planImg.naturalWidth; cv.height = planImg.naturalHeight;
-    if (scenes.length) openScene(scenes[0].id);
+  curPlan = planSrc; fillPlans();
+  var first = scenes.length ? scenes[0].id : null;
+  loadPlan(first && cams[first] ? planOf(cams[first]) : planSrc, function(){
+    if (first) openScene(first);
     requestAnimationFrame(frame);
-  };
-  planImg.src = '../' + planSrc;
+  });
 });
 </script>
 </body>

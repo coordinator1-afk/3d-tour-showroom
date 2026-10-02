@@ -125,6 +125,33 @@ window.SITE_CONFIG = {
       type: 'pano',
       src: 'assets/pano/pano-05.webp',
       thumb: 'assets/pano/pano-05.webp'
+    },
+    {
+      id: 'noi-that-360-06',
+      name: 'INTERIOR 06',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-06.webp',
+      thumb: 'assets/pano/pano-06.webp'
+    },
+    {
+      id: 'noi-that-360-07',
+      name: 'INTERIOR 07',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-07.webp',
+      thumb: 'assets/pano/pano-07.webp'
+    },
+    {
+      id: 'noi-that-360-08',
+      name: 'INTERIOR 08',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-08.webp',
+      thumb: 'assets/pano/pano-08.webp'
     }
   ],
 

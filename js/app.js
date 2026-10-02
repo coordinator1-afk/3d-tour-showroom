@@ -769,6 +769,8 @@
     applyMinimapSize();
     if (!c || !sc || sc.mode !== 'pano') return;
 
+    var pl = c.plan || MM.data.plan;
+    if (MM.img.getAttribute('src') !== pl) MM.img.src = pl;
     mmPlace(MM.cone, c);
     mmPlace(MM.dot, c);
 
@@ -776,7 +778,7 @@
     MM.dots.forEach(function (d) { d.remove(); });
     MM.dots = [];
     Object.keys(MM.data.cams).forEach(function (id) {
-      if (id === sc.id || !sceneById(id)) return;
+      if (id === sc.id || !sceneById(id) || (MM.data.cams[id].plan || MM.data.plan) !== pl) return;
       var o = document.createElement('button');
       o.type = 'button';
       o.className = 'minimap__other';
