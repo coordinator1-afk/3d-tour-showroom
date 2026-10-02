@@ -138,7 +138,7 @@
      Toạ độ từng frame nằm trong js/hotspots.json (tạo bằng tools/track-hotspot.py),
      chuẩn hoá 0..1 theo khung ảnh nên đúng với mọi bộ kích thước frame.
      ============================================================== */
-  var H = { items: [], hover: null, open: null, any: false, card: null, down: null, tip: null };
+  var H = { alpha: 0, last: 0, items: [], hover: null, open: null, any: false, card: null, down: null, tip: null };
 
   function loadHotspots() {
     if (!window.fetch) return;
@@ -177,6 +177,7 @@
   function drawHotspots(frameIdx) {
     H.any = false;
     if (!H.items.length) return;
+    if (H.alpha < 0.003) { H.items.forEach(function (it) { it.screen = null; }); H.any = true; closeCardIfHidden(); return; }
     var t = performance.now() / 1000;
     var pulse = 0.5 + 0.5 * Math.sin(t * 2.6);
     H.items.forEach(function (it) {
@@ -187,6 +188,7 @@
       var hot = H.hover === it || H.open === it;
 
       ctx.save();
+      ctx.globalAlpha = H.alpha;
       ctx.beginPath();
       poly.forEach(function (q, i) { i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
       ctx.closePath();
@@ -205,7 +207,22 @@
     placeCard();
   }
 
+  function closeCardIfHidden() { if (H.card) H.card.style.opacity = '0'; }
+
+  /* ẩn khi đang xoay (nhanh), hiện lại mượt khi dừng */
+  function updateHotspotFade() {
+    var now = performance.now(), dt = Math.min(0.1, (now - (H.last || now)) / 1000);
+    H.last = now;
+    var moving = T.dragging || T.spin || Math.abs(T.vel) > 0.02;
+    var target = moving ? 0 : 1, a = H.alpha;
+    a += (target - a) * (1 - Math.exp(-dt * (moving ? 18 : 5)));
+    if (Math.abs(target - a) < 0.004) a = target;
+    if (a !== H.alpha) { H.alpha = a; T.dirty = true; }
+    if (H.card) H.card.style.opacity = a < 0.05 ? '0' : String(a);
+  }
+
   function hotspotAt(x, y) {
+    if (H.alpha < 0.5) return null;
     for (var i = 0; i < H.items.length; i++) {
       var s = H.items[i].screen;
       if (s && pointInPoly(x, y, s)) return H.items[i];
@@ -288,6 +305,7 @@
     if (T.pos < 0 || T.pos >= T.count) {
       T.pos = ((T.pos % T.count) + T.count) % T.count;
     }
+    updateHotspotFade();
     drawFrame();
   }
 
