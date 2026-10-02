@@ -82,6 +82,15 @@ window.SITE_CONFIG = {
       thumb: 'assets/2d/plan-04.jpg'
     },
     {
+      id: 'ban-ve-05',
+      name: 'FLOOR PLAN 2',
+      subtitle: 'Unit 2 plan',
+      mode: '2d',
+      type: 'plan',
+      src: 'assets/2d/plan-05.png',
+      thumb: 'assets/2d/plan-05.png'
+    },
+    {
       id: 'noi-that-360-01',
       name: 'INTERIOR 01',
       subtitle: '360° panorama',
@@ -152,6 +161,51 @@ window.SITE_CONFIG = {
       type: 'pano',
       src: 'assets/pano/pano-08.webp',
       thumb: 'assets/pano/pano-08.webp'
+    },
+    {
+      id: 'noi-that-360-09',
+      name: 'INTERIOR 09',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-09.webp',
+      thumb: 'assets/pano/pano-09.webp'
+    },
+    {
+      id: 'noi-that-360-10',
+      name: 'INTERIOR 10',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-10.webp',
+      thumb: 'assets/pano/pano-10.webp'
+    },
+    {
+      id: 'noi-that-360-11',
+      name: 'INTERIOR 11',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-11.webp',
+      thumb: 'assets/pano/pano-11.webp'
+    },
+    {
+      id: 'noi-that-360-12',
+      name: 'INTERIOR 12',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-12.webp',
+      thumb: 'assets/pano/pano-12.webp'
+    },
+    {
+      id: 'noi-that-360-13',
+      name: 'INTERIOR 13',
+      subtitle: '360° panorama',
+      mode: 'pano',
+      type: 'pano',
+      src: 'assets/pano/pano-13.webp',
+      thumb: 'assets/pano/pano-13.webp'
     }
   ],
 
